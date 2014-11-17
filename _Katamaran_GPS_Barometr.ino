@@ -15,6 +15,8 @@
 
 #define DEBUG 1
 
+#define UTC 3 //  UTC+3 = Moscow
+
 struct config_t
 {
     long alarm;
@@ -109,7 +111,7 @@ unsigned long PreviousInterval = 0;
 
 void setup() {
   
-  Display = DISPLAY_1;
+  Display = DISPLAY_3;
   
   Wire.begin();  // Attach I2C Protocol
     
@@ -424,13 +426,15 @@ void setDateTime() {
 
 void set_GPS_DateTime() {
   
- //  UTC+3 = Moscow
-
  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
 
   byte seconds =   gps.time.second();
   byte minutes =   gps.time.minute();
   byte hours =     gps.time.hour();
+  
+  hours = hours + UTC;
+  if (hours > 23)  hours = hours - 24;
+  
   byte weekDay =   1;
   byte monthDay =  gps.date.day();
   byte months =    gps.date.month();
@@ -483,15 +487,14 @@ void Analog_Time_Clock( void ) {
 void ShowData( void ) {
 
    char output[20];
-   int a = 10;
-   
+   float a = 10.87;
    
   if(currentMillis - PreviousInterval > 1000) {  // Выводим большие часы
    PreviousInterval = currentMillis;  
-   lcd.clear(BLACK);
    
-   sprintf(output,"%2d",a);
+   strcpy(output,FloatToString(a));
    lcd.setStr(output,0,0,WHITE, BLACK);
+   
   }
 }
 
@@ -508,3 +511,92 @@ void Draw( void ) {
    Display = DISPLAY_NONE;
 
 }
+
+
+
+char* FloatToString(float temp) {
+  
+  char ascii[20];
+
+  int frac;
+  int rnd;
+
+  rnd = (unsigned int)(temp*1000)%10;
+  frac=(unsigned int)(temp*100)%100;  
+  if (rnd>=5) frac=frac+1;
+  itoa((int)temp,ascii,10);
+  strcat(ascii,".");
+
+  if (frac<10) { itoa(0,&ascii[strlen(ascii)],10); } 
+   
+   itoa(frac,&ascii[strlen(ascii)],10); 
+    
+  return ascii;
+  
+} 
+
+// ---------------- Sun Rise and Sun Set -------------------------------
+
+/*
+void Sun( void ) { 
+  
+  int m,h;
+  int t;
+
+  int year;
+  byte month, day, hour, minutes, second, hundredths;
+  unsigned long age;
+  unsigned long fix_age;
+  float latitude, longitude;
+  unsigned short tout;
+  
+  Wire.beginTransmission(DS1307_ADDRESS);
+  Wire.write(0);
+  Wire.endTransmission();
+  Wire.requestFrom(DS1307_ADDRESS, 7);
+
+  int xsecond = bcdToDec(Wire.read());
+  int xminute = bcdToDec(Wire.read());
+  int xhour = bcdToDec(Wire.read() & 0b111111); //24 hour time
+  int xweekDay = bcdToDec(Wire.read()); //0-6 -> sunday - Saturday
+  int xmonthDay = bcdToDec(Wire.read());
+  int xmonth = bcdToDec(Wire.read());
+  int xyear = bcdToDec(Wire.read());
+  
+  gps.crack_datetime(&year, &month, &day, &hour, &minutes, &second, &hundredths, &age);
+ 
+  if (age != TinyGPS::GPS_INVALID_AGE) {
+      
+  gps.f_get_position(&latitude, &longitude, &fix_age);
+   
+  Sunrise mySunrise(latitude, longitude,4);
+
+  mySunrise.Actual();
+
+ if (Display == 2) {
+   t = mySunrise.Rise(xmonth,xmonthDay);
+  if(t >= 0) {
+    h = mySunrise.Hour();
+    m = mySunrise.Minute();
+    tout = h * 100;
+    tout = tout + m;  
+    write_led(tout,10,1);
+  } else {  write_led_numbers(0,0,0,0); }
+ }
+  
+ if (Display == 3) {
+   t = mySunrise.Set(xmonth,xmonthDay);
+  if(t >= 0) {
+    h = mySunrise.Hour();
+    m = mySunrise.Minute();
+    tout = h * 100;
+    tout = tout + m;  
+    write_led(tout,10,1);
+  } else { write_led_numbers(0,0,0,0); }
+ }
+ 
+ } else write_led_numbers(0,0,0,0);
+  
+}
+
+*/
