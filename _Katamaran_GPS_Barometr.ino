@@ -13,7 +13,7 @@
 #include <EEPROM.h>
 #include "EEPROMAnything.h"
 
-#define DEBUG 0
+#define DEBUG 1
 
 struct config_t
 {
@@ -146,6 +146,8 @@ void loop()
 
    if (Display == DISPLAY_1) Analog_Time_Clock();
    if (Display == DISPLAY_2) Draw();
+   if (Display == DISPLAY_3) ShowData();
+   
   
     // i2scan();
   
@@ -154,7 +156,7 @@ void loop()
      if (DEBUG) bt.println(results.value);
      
      digitalWrite(CPU_LED,HIGH);
-     delay(100);
+     delay(50);
      digitalWrite(CPU_LED,LOW);
      
     switch (results.value) {      
@@ -166,6 +168,11 @@ void loop()
       Display = DISPLAY_2;
       lcd.clear(BLACK);
       break;
+     case DISPLAY_3:
+      Display = DISPLAY_3;
+      lcd.clear(BLACK);
+      break;
+      
      case DISPLAY_9:
       if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true;
       break;
@@ -183,7 +190,8 @@ void loop()
      gps.encode(nmea);
      if (GPS_OUT) bt.print(nmea);
   
-     if (gps.location.isValid()) {
+  /*
+    if (gps.location.isValid()) {
        bt.println(gps.location.lat(), 6);
        bt.println(gps.location.lng(), 6);     
      }   
@@ -193,7 +201,7 @@ void loop()
        bt.print(F("/"));
        bt.print(gps.date.day());
        bt.print(F("/"));
-       bt.print(gps.date.year());
+       bt.println(gps.date.year());
      }
 
      if (gps.time.isValid()) {
@@ -201,9 +209,10 @@ void loop()
       bt.print(F(":"));
       bt.print(gps.time.minute());
       bt.print(F(":"));
-      bt.print(gps.time.second());
+      bt.println(gps.time.second());
      }
-  
+   */
+   
    }
    
  /*  
@@ -435,6 +444,21 @@ void Analog_Time_Clock( void ) {
 
   }
   
+}
+
+void ShowData( void ) {
+
+   char output[20];
+   int a = 10;
+   
+   
+  if(currentMillis - PreviousInterval > 1000) {  // Выводим большие часы
+   PreviousInterval = currentMillis;  
+   lcd.clear(BLACK);
+   
+   sprintf(output,"%2d",a);
+   lcd.setStr(output,0,0,WHITE, BLACK);
+  }
 }
 
 void Draw( void ) {
