@@ -24,6 +24,7 @@ struct config_t
 
 } configuration;
 
+char output[20];
 
 //---------------- IR Кнопки --------------------------
 
@@ -220,20 +221,7 @@ void loop()
    
    }
    
- /*  
-  dps.getPressure(&Pressure); 
-  dps.getAltitude(&Altitude); 
-  dps.getTemperature(&Temperature);
 
-  bt.print("  Alt(m):"); 
-  bt.print(Altitude/100.0); 
-  bt.print("  Pressure(mm Hg):"); 
-  bt.print(Pressure/133.3); 
-  bt.print(" Temp:"); 
-  bt.println(Temperature*0.1); 
-  delay(2000); 
-  
-  */
   
 }
 
@@ -486,14 +474,36 @@ void Analog_Time_Clock( void ) {
 
 void ShowData( void ) {
 
-   char output[20];
+  
    float a = 10.87;
+   float A,P,T;
    
-  if(currentMillis - PreviousInterval > 1000) {  // Выводим большие часы
+  if(currentMillis - PreviousInterval > 2000) {  // Выводим большие часы
    PreviousInterval = currentMillis;  
    
+   lcd.clear(BLACK);
+   
    strcpy(output,FloatToString(a));
-   lcd.setStr(output,0,0,WHITE, BLACK);
+      lcd.setStr(output,0,0,WHITE, BLACK);
+
+   dps.getPressure(&Pressure); 
+   dps.getAltitude(&Altitude); 
+   dps.getTemperature(&Temperature);
+
+    A = Altitude/100.0;
+    strcpy(output,FloatToString(A));
+       lcd.setStr(output,15,0,WHITE, BLACK);
+
+    P = Pressure/133.3;
+    
+    strcpy(output,FloatToString(P));
+       lcd.setStr(output,30,0,WHITE, BLACK);
+
+    T = Temperature*0.1;
+    strcpy(output,FloatToString(T)); 
+       lcd.setStr(output,45,0,WHITE, BLACK);
+
+   
    
   }
 }
@@ -531,7 +541,7 @@ char* FloatToString(float temp) {
    
    itoa(frac,&ascii[strlen(ascii)],10); 
     
-  return ascii;
+  return strcat(ascii,'\0');
   
 } 
 
