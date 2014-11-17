@@ -90,6 +90,10 @@ int hours, minutes, seconds, ampm;
 
 ////////////////////////////////////////////
 
+
+unsigned long currentMillis;
+unsigned long PreviousInterval = 0; 
+
 void setup()
 {
 
@@ -171,32 +175,37 @@ void loop()
 {
   
   
+   currentMillis = millis();
+
+  
+  if(currentMillis - PreviousInterval > 1000) {  // Выводим большие часы
+    PreviousInterval = currentMillis;  
   
   
   /* We'll get here if it's been a second. We need to increase
   seconds by 1 and then go from there */
   
-  seconds++;
-  if (seconds >= 60)
-  {
-    seconds = 0;  // If seconds is 60, set it back to 0
-    minutes++;    // and increase minutes by 1
-    if (minutes >= 60)
-    {
-      minutes = 0;  // If minutes is 60, set it back to 0
-      hours++;      // and increase hours by 1
-      if (hours == 12)
-        ampm ^= 1;  // If it's 12 o'clock, flip ampm
-      if (hours >= 13)
-        hours = 1;  // If hours is 13, set it to 1. 12-hr clock.
-    }
-  }
-  /* Once each second, we'll redraw the clock with new values */
+   Wire.beginTransmission(DS1307_ADDRESS);
+  Wire.write(0);
+  Wire.endTransmission();
+  Wire.requestFrom(DS1307_ADDRESS, 7);
+
+   seconds = bcdToDec(Wire.read());
+   minutes = bcdToDec(Wire.read());
+   hours = bcdToDec(Wire.read() & 0b111111); //24 hour time
+  
+  int weekDay = bcdToDec(Wire.read()); //0-6 -> sunday - Saturday
+  int monthDay = bcdToDec(Wire.read());
+  int month = bcdToDec(Wire.read());
+  int year = bcdToDec(Wire.read());
+  
+
+
   drawClock();
   displayAnalogTime(hours, minutes, seconds);
   displayDigitalTime(hours, minutes, seconds, ampm);
 
-
+  }
   
   
   
