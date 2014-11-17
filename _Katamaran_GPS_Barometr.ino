@@ -185,6 +185,9 @@ void loop()
 
  // --------------------------- GPS -----------------------
  
+   if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid())
+     set_GPS_DateTime();
+   
    if (Serial1.available()) {
      char nmea = Serial1.read();
      gps.encode(nmea);
@@ -416,6 +419,37 @@ void setDateTime() {
 
   Wire.write(0); 
   Wire.endTransmission();
+
+}
+
+void set_GPS_DateTime() {
+  
+ //  UTC+3 = Moscow
+
+ if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+
+  byte seconds =   gps.time.second();
+  byte minutes =   gps.time.minute();
+  byte hours =     gps.time.hour();
+  byte weekDay =   1;
+  byte monthDay =  gps.date.day();
+  byte months =    gps.date.month();
+  byte years  =    gps.date.year();
+
+  Wire.beginTransmission(DS1307_ADDRESS);
+  Wire.write(0);
+
+  Wire.write(decToBcd(seconds));
+  Wire.write(decToBcd(minutes));
+  Wire.write(decToBcd(hours));
+  Wire.write(decToBcd(weekDay));
+  Wire.write(decToBcd(monthDay));
+  Wire.write(decToBcd(months));
+  Wire.write(decToBcd(years));
+
+  Wire.write(0); 
+  Wire.endTransmission();
+}
 
 }
 
