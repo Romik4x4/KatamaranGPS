@@ -47,8 +47,6 @@
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
-
-
 DeviceAddress RTC_Thermometer = { 0x28, 0x46, 0xBD, 0x19, 0x3, 0x0, 0x0, 0x35 };
 
 
@@ -97,8 +95,13 @@ void setup()
 
   
   Wire.begin();
-  delay(1000); // For BMP085
-  set_1HZ_DS1307();
+  
+  //  delay(1000); // For BMP085 - Зачем не понятно
+  
+  // setDateTime(); // Установка начального времени
+  
+  set_1HZ_DS1307(); // Включаем синий светодиод на DS1307
+  
   
   // dps.init(); == dps.init(MODE_STANDARD, 0, true); 
   // dps.init(MODE_STANDARD, 101850, false);
@@ -172,6 +175,7 @@ void loop()
   
   /* We'll get here if it's been a second. We need to increase
   seconds by 1 and then go from there */
+  
   seconds++;
   if (seconds >= 60)
   {
@@ -420,3 +424,41 @@ void displayAnalogTime(int h, int m, int s)
   hy = H_LENGTH * cos(3.14 * ((double) h)/180);  // woo trig!
   lcd.setLine(CLOCK_CENTER, 66, CLOCK_CENTER+hx, 66+hy, H_COLOR);  // print hour hand
 }
+
+
+////////////////////////////////////////// DS1307 /////////////////////////////////////////////
+
+byte decToBcd(byte val) {
+  return ( (val/10*16) + (val%10) );
+}
+
+byte bcdToDec(byte val) {
+  return ( (val/16*10) + (val%16) );
+}
+
+void setDateTime() {
+
+  byte second =      00; //0-59
+  byte minute =      00; //0-59
+  byte hour =        12; //0-23
+  byte weekDay =      1; //1-7
+  byte monthDay =    17; //1-31
+  byte month =       11; //1-12
+  byte year  =       14; //0-99
+
+  Wire.beginTransmission(DS1307_ADDRESS);
+  Wire.write(0);
+
+  Wire.write(decToBcd(second));
+  Wire.write(decToBcd(minute));
+  Wire.write(decToBcd(hour));
+  Wire.write(decToBcd(weekDay));
+  Wire.write(decToBcd(monthDay));
+  Wire.write(decToBcd(month));
+  Wire.write(decToBcd(year));
+
+  Wire.write(0); 
+  Wire.endTransmission();
+
+}
+
