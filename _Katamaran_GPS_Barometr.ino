@@ -13,6 +13,8 @@
 #include <EEPROM.h>
 #include "EEPROMAnything.h"
 
+#define DEBUG 0
+
 struct config_t
 {
     long alarm;
@@ -23,15 +25,15 @@ struct config_t
 
 //---------------- IR Кнопки --------------------------
 
-#define DISPLAY_1 16724175 // 1
-#define DISPLAY_2 16718055 // 2
+#define DISPLAY_1 16724175 // 1 Analog Clock
+#define DISPLAY_2 16718055 // 2 Draw
 #define DISPLAY_3 16743045 // 3
 #define DISPLAY_4 16716015 // 4
 #define DISPLAY_5 16726215 // 5
 #define DISPLAY_6 16734885 // 6
 #define DISPLAY_7 16728765 // 7
 #define DISPLAY_8 16730805 // 8
-#define DISPLAY_9 16732845 // 9
+#define DISPLAY_9 16732845 // 9  GPS Output
 
 #define CONTRAST_UP 16769055 // +
 #define CONTRAST_DW 16754775 // -
@@ -75,6 +77,9 @@ BMP085 dps = BMP085();
 long Temperature = 0, Pressure = 0, Altitude = 0;
 
 SoftwareSerial bt(23,22); // RX,TX  
+
+TinyGPSPlus gps;
+boolean GPS_OUT = false;
 
 //////////////////////////////////////////// Часы ////////////////////////
 
@@ -146,7 +151,8 @@ void loop()
   
    if (irrecv.decode(&results)) {
     
-     bt.println(results.value);
+     if (DEBUG) bt.println(results.value);
+     
      digitalWrite(CPU_LED,HIGH);
      delay(100);
      digitalWrite(CPU_LED,LOW);
@@ -160,18 +166,25 @@ void loop()
       Display = DISPLAY_2;
       lcd.clear(BLACK);
       break;
+     case DISPLAY_9:
+      if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true;
+      break;
+      
     }
     
     irrecv.resume(); 
    }     
 
 
- /*
+ // --------------------------- GPS -----------------------
+ 
    if (Serial1.available()) {
-     char a = Serial1.read();
-     bt.print(a);
+     char nmea = Serial1.read();
+     gps.encode(nmea);
+     if (GPS_OUT) bt.print(nmea);
    }   
-   
+ 
+ /*  
   dps.getPressure(&Pressure); 
   dps.getAltitude(&Altitude); 
   dps.getTemperature(&Temperature);
