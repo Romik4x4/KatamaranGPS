@@ -10,6 +10,16 @@
 #include <Wire.h>
 #include <ColorLCDShield.h>
 #include <BMP085.h>
+#include <EEPROM.h>
+#include "EEPROMAnything.h"
+
+struct config_t
+{
+    long alarm;
+    int mode;
+
+} configuration;
+
 
 //---------------- IR Кнопки --------------------------
 
@@ -25,6 +35,7 @@
 
 #define CONTRAST_UP 16769055 // +
 #define CONTRAST_DW 16754775 // -
+
 
 // BOX G218C Chip-Dip
 
@@ -91,27 +102,26 @@ int weekDay,monthDay,month,year;
 
 ////////////////////////////////////////////
 
+byte Display = 0;
 
 unsigned long currentMillis;
 unsigned long PreviousInterval = 0; 
 
-void setup()
-{
-
+void setup() {
   
-  Wire.begin();
-  
-  //  delay(1000); // For BMP085 - Зачем не понятно
-  
-  // setDateTime(); // Установка начального времени
-  
+  Wire.begin();  // Attach I2C Protocol
+    
+  EEPROM_readAnything(0, configuration); // Чтения конфигурации
   set_1HZ_DS1307(); // Включаем синий светодиод на DS1307
   
   
+  // delay(1000); // For BMP085 - Зачем не понятно  
+  // setDateTime(); // Установка начального времени
+ 
   // dps.init(); == dps.init(MODE_STANDARD, 0, true); 
   // dps.init(MODE_STANDARD, 101850, false);
   
-  dps.init(MODE_ULTRA_HIGHRES, 25000, true); 
+  dps.init(MODE_ULTRA_HIGHRES, 25000, true);  // Разрешение BMP180
   
   irrecv.enableIRIn();
    
@@ -155,21 +165,8 @@ void setup()
   
   Serial.println("\nI2C Scanner");
   bt.begin(9600);
+  bt.println(configuration.mode);
 
-
-  ////////////////// Часы //////////////////////
-
-  hours = HOURS;
-  minutes = MINUTES;
-  seconds = SECONDS;
-  ampm = AMPM;
-  
-  drawClock();  // Draw the clock face, this includes 12, 3, 6, 9
-  displayAnalogTime(hours, minutes, seconds);  // Draw the clock hands
-  displayDigitalTime(hours, minutes, seconds, ampm);  // Draw the digital clock text
-  
-  ///////////////////////////////////////////////////////////////////////////////////////
-  
 }
 
 void loop()
@@ -178,33 +175,26 @@ void loop()
   
    currentMillis = millis();
 
-  
   if(currentMillis - PreviousInterval > 1000) {  // Выводим большие часы
     PreviousInterval = currentMillis;  
   
-  
-  /* We'll get here if it's been a second. We need to increase
-  seconds by 1 and then go from there */
-  
-   Wire.beginTransmission(DS1307_ADDRESS);
+  Wire.beginTransmission(DS1307_ADDRESS);
   Wire.write(0);
   Wire.endTransmission();
   Wire.requestFrom(DS1307_ADDRESS, 7);
 
-   seconds = bcdToDec(Wire.read());
-   minutes = bcdToDec(Wire.read());
-   hours = bcdToDec(Wire.read() & 0b111111); //24 hour time
+  seconds = bcdToDec(Wire.read());
+  minutes = bcdToDec(Wire.read());
+  hours = bcdToDec(Wire.read() & 0b111111); //24 hour time
   
-  int weekDay = bcdToDec(Wire.read()); //0-6 -> sunday - Saturday
-  int monthDay = bcdToDec(Wire.read());
-  int month = bcdToDec(Wire.read());
-  int year = bcdToDec(Wire.read());
-  
-
+  weekDay = bcdToDec(Wire.read()); //0-6 -> sunday - Saturday
+  monthDay = bcdToDec(Wire.read());
+  month = bcdToDec(Wire.read());
+  year = bcdToDec(Wire.read());
 
   drawClock();
   displayAnalogTime(hours, minutes, seconds);
-  displayDigitalTime(hours, minutes, seconds, ampm);
+  displayDigitalTime(hours, minutes, seconds);
 
   }
   
@@ -215,7 +205,9 @@ void loop()
    if (irrecv.decode(&results)) {
     bt.println(results.value);
     switch (results.value) {
-    case 16724175: 
+    case 16724175:
+    configuration.mode = 11;
+     EEPROM_writeAnything(0, configuration); 
      lcd.off();
      break;
      case 16718055:
@@ -343,7 +335,7 @@ void battary( void ) {
 }
 
 
-void displayDigitalTime(int h, int m, int s, int ap)
+void displayDigitalTime(int h, int m, int s)
 {
     char timeChar[12];
   
