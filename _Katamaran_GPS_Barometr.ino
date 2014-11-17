@@ -112,7 +112,7 @@ unsigned long PreviousInterval = 0;
 
 void setup() {
   
-  Display = DISPLAY_3;
+  Display = DISPLAY_1;
   
   Wire.begin();  // Attach I2C Protocol
     
