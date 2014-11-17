@@ -36,6 +36,7 @@ struct config_t
 #define CONTRAST_UP 16769055 // +
 #define CONTRAST_DW 16754775 // -
 
+#define DISPLAY_NONE 0
 
 // BOX G218C Chip-Dip
 
@@ -60,7 +61,6 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 DeviceAddress RTC_Thermometer = { 0x28, 0x46, 0xBD, 0x19, 0x3, 0x0, 0x0, 0x35 };
 
-
 LCDShield lcd;  // Creates an LCDShield, named lcd
 
 int CPU_LED = 1; // PB1 on Board
@@ -80,11 +80,6 @@ SoftwareSerial bt(23,22); // RX,TX
 
 // Enter the time below in 12-hr format
 
-#define HOURS 10
-#define MINUTES 21
-#define SECONDS 00
-#define AMPM 0           // enter 0 for AM, 1 for PM
-
 #define CLOCK_RADIUS 45  // radius of clock face
 #define CLOCK_CENTER 50  // If you adjust the radius, you'll probably want to adjust this
 #define H_LENGTH  25     // length of hour hand
@@ -102,18 +97,19 @@ int weekDay,monthDay,month,year;
 
 ////////////////////////////////////////////
 
-byte Display = 0;
+unsigned long Display;
 
 unsigned long currentMillis;
 unsigned long PreviousInterval = 0; 
 
 void setup() {
   
+  Display = DISPLAY_1;
+  
   Wire.begin();  // Attach I2C Protocol
     
   EEPROM_readAnything(0, configuration); // Чтения конфигурации
   set_1HZ_DS1307(); // Включаем синий светодиод на DS1307
-  
   
   // delay(1000); // For BMP085 - Зачем не понятно  
   // setDateTime(); // Установка начального времени
@@ -128,44 +124,12 @@ void setup() {
   pinMode(CPU_LED,OUTPUT);
   digitalWrite(CPU_LED,LOW);
 
-  //pinMode(5,OUTPUT);
-  //pinMode(7,OUTPUT);
-  //pinMode(27,OUTPUT);
-  //pinMode(26,OUTPUT);
-  
-  
   lcd.init(EPSON);   // Initializes lcd, using an PHILIPSdriver
   lcd.contrast(44);  // -51's usually a good contrast value
   lcd.clear(BLACK);  // clear the screen
-  
-  /*
-  
-  //Creates RED Arc in the ENE Quadrant with a Line Thickness of 5 Pixels
-  int segmentsRed[1] = {ENE};
-  lcd.setArc(60,50,40,segmentsRed,sizeof(segmentsRed),5,RED);
-  
-  //Creates YELLOW Arc in the NNE Quadrant with a Line Thickness of 10 Pixels
-  int segmentsYellow[1] = {NNE};
-  lcd.setArc(60,50,40,segmentsYellow,sizeof(segmentsYellow),10,YELLOW);
-  
-  //Creates GREEN Arc in the WNW and NNW Quadrants with a FILL
-  int segments[2] = {WNW,NNW};
-  lcd.setArc(60,50,40,segments,sizeof(segments),FILL,GREEN);
-  
-  //Creates PINK Circle with a FILL
-  lcd.setCircle(90,100,20,PINK,FILL);
-  
-  //Creates CYAN Circle with a Line Thickness of 3 Pixels
-  lcd.setCircle(90,35,25,CYAN,3);
 
-*/
-
-  Serial.begin(9600);
-  Serial1.begin(4800);
-  
-  Serial.println("\nI2C Scanner");
-  bt.begin(9600);
-  bt.println(configuration.mode);
+  Serial1.begin(4800);  // GPS EM-406
+  bt.begin(9600);       // Bluetooth
 
 }
 
@@ -175,43 +139,26 @@ void loop()
   
    currentMillis = millis();
 
-  if(currentMillis - PreviousInterval > 1000) {  // Выводим большие часы
-    PreviousInterval = currentMillis;  
-  
-  Wire.beginTransmission(DS1307_ADDRESS);
-  Wire.write(0);
-  Wire.endTransmission();
-  Wire.requestFrom(DS1307_ADDRESS, 7);
-
-  seconds = bcdToDec(Wire.read());
-  minutes = bcdToDec(Wire.read());
-  hours = bcdToDec(Wire.read() & 0b111111); //24 hour time
-  
-  weekDay = bcdToDec(Wire.read()); //0-6 -> sunday - Saturday
-  monthDay = bcdToDec(Wire.read());
-  month = bcdToDec(Wire.read());
-  year = bcdToDec(Wire.read());
-
-  drawClock();
-  displayAnalogTime(hours, minutes, seconds);
-  displayDigitalTime(hours, minutes, seconds);
-
-  }
-  
-  
+   if (Display == DISPLAY_1) Analog_Time_Clock();
+   if (Display == DISPLAY_2) Draw();
   
     // i2scan();
   
    if (irrecv.decode(&results)) {
-    bt.println(results.value);
-    switch (results.value) {
-    case 16724175:
-    configuration.mode = 11;
-     EEPROM_writeAnything(0, configuration); 
-     lcd.off();
-     break;
-     case 16718055:
-      lcd.on();
+    
+     bt.println(results.value);
+     digitalWrite(CPU_LED,HIGH);
+     delay(100);
+     digitalWrite(CPU_LED,LOW);
+     
+    switch (results.value) {      
+     case DISPLAY_1:
+      Display = DISPLAY_1;
+      lcd.clear(BLACK);
+      break;
+     case DISPLAY_2:
+      Display = DISPLAY_2;
+      lcd.clear(BLACK);
       break;
     }
     
@@ -428,3 +375,43 @@ void setDateTime() {
 
 }
 
+void Analog_Time_Clock( void ) {
+    
+   if(currentMillis - PreviousInterval > 1000) {  // Выводим большие часы
+    PreviousInterval = currentMillis;  
+  
+   Wire.beginTransmission(DS1307_ADDRESS);
+   Wire.write(0);
+   Wire.endTransmission();
+   Wire.requestFrom(DS1307_ADDRESS, 7);
+
+   seconds = bcdToDec(Wire.read());
+   minutes = bcdToDec(Wire.read());
+   hours = bcdToDec(Wire.read() & 0b111111); //24 hour time
+  
+   weekDay = bcdToDec(Wire.read()); //0-6 -> sunday - Saturday
+   monthDay = bcdToDec(Wire.read());
+   month = bcdToDec(Wire.read());
+   year = bcdToDec(Wire.read());
+
+   drawClock();
+   displayAnalogTime(hours, minutes, seconds);
+   displayDigitalTime(hours, minutes, seconds);
+
+  }
+  
+}
+
+void Draw( void ) {
+  
+   int segmentsRed[1] = {ENE};
+   lcd.setArc(60,50,40,segmentsRed,sizeof(segmentsRed),5,RED);
+   int segmentsYellow[1] = {NNE};
+   lcd.setArc(60,50,40,segmentsYellow,sizeof(segmentsYellow),10,YELLOW);
+   int segments[2] = {WNW,NNW};
+   lcd.setArc(60,50,40,segments,sizeof(segments),FILL,GREEN);
+   lcd.setCircle(90,100,20,PINK,FILL);
+   lcd.setCircle(90,35,25,CYAN,3);
+   Display = DISPLAY_NONE;
+
+}
