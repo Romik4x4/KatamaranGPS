@@ -182,8 +182,30 @@ void loop()
      char nmea = Serial1.read();
      gps.encode(nmea);
      if (GPS_OUT) bt.print(nmea);
-   }   
- 
+  
+     if (gps.location.isValid()) {
+       bt.println(gps.location.lat(), 6);
+       bt.println(gps.location.lng(), 6);     
+     }   
+         
+     if (gps.date.isValid()) {
+       bt.print(gps.date.month());
+       bt.print(F("/"));
+       bt.print(gps.date.day());
+       bt.print(F("/"));
+       bt.print(gps.date.year());
+     }
+
+     if (gps.time.isValid()) {
+      bt.print(gps.time.hour());
+      bt.print(F(":"));
+      bt.print(gps.time.minute());
+      bt.print(F(":"));
+      bt.print(gps.time.second());
+     }
+  
+   }
+   
  /*  
   dps.getPressure(&Pressure); 
   dps.getAltitude(&Altitude); 
