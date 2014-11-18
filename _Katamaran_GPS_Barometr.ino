@@ -273,33 +273,7 @@ void i2scan()
   delay(5000);           // wait 5 seconds for next scan
 }
 
-/*
-
-
-        void init(int type, bool colorSwap = 0);
-	void clear(int color);
-	void contrast(char setting);
-
-	void setPixel(int color, unsigned char x, unsigned char y);
-	void setCircle (int x0, int y0, int radius, int color, int lineThickness = 1);
-	void setArc(int x0, int y0, int radius, int segments[], int numSegments, int lineThickness, int color);
-
-	void setChar(char c, int x, int y, int fColor, int bColor);
-	void setStr(char *pString, int x, int y, int fColor, int bColor);
-	
-
-	void setLine(int x0, int y0, int x1, int y1, int color);
-	void setRect(int x0, int y0, int x1, int y1, unsigned char fill, int color);
-    
-        void printBMP(char image_main[2048]);
-
-	void printLogo(void);
-
-	void on(void);
-	void off(void);
-
-*/
-
+// --------------------------- Мигает светодиод 1 HZ от RTC DS1307 -------------------------------
 
 void set_1HZ_DS1307( void ) {
     
@@ -314,6 +288,8 @@ void set_1HZ_DS1307( void ) {
 
 }
 
+// -------------------------- Измерение входного напряжения от батарейки 3.7V Батарейка 4.x - Зарядка ----
+
 float battary( void ) {
   
   int sensorValue = analogRead(A4); // PA4/D28
@@ -322,6 +298,7 @@ float battary( void ) {
   
 }
 
+// --------------------------------------------- Функция для Аналоговых часов --------------------
 
 void displayDigitalTime(int h, int m, int s)
 {
@@ -378,7 +355,6 @@ void displayAnalogTime(int h, int m, int s) {
   lcd.setLine(CLOCK_CENTER, 66, CLOCK_CENTER+hx, 66+hy, H_COLOR); // print hour hand
 
 }
-
 
 ////////////////////////////////////////// DS1307 /////////////////////////////////////////////
 
@@ -585,15 +561,23 @@ void ShowData(boolean s) {
    strcpy(f,"Date: ");
    strcat(f,output);
    lcd.setStr(f,75,2,WHITE, BLACK);       
-   
-   
+     
    float tempC = getTemperature(RTC_Thermometer);
          tempC = f2c(tempC);
    
    dtostrf(tempC, 4, 2, output);
    strcpy(f,"T[rtc]: ");
    strcat(f,output);
-   lcd.setStr(f,90,2,WHITE, BLACK);       
+   lcd.setStr(f,90,2,WHITE, BLACK);  
+
+   if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+    strcpy(f,"GPS: OK");
+    lcd.setStr(f,105,2,WHITE, BLACK);  
+   } else {
+    strcpy(f,"GPS: None");
+    lcd.setStr(f,105,2,WHITE, BLACK);  
+   }
+       
    
   }
 }
