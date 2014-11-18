@@ -20,6 +20,7 @@
 struct config_t
 {    
     unsigned long Display;
+    int Contrast;
 
 } configuration;
 
@@ -113,13 +114,16 @@ unsigned long Display;
 unsigned long currentMillis;
 unsigned long PreviousInterval = 0; 
 
+int Contrast;
+
 void setup() {
   
   Wire.begin();  // Attach I2C Protocol
     
   EEPROM_readAnything(0, configuration); // Чтения конфигурации
   
-  Display = configuration.Display;
+  Display = configuration.Display;   // Default DISPLAY_1;
+  Contrast = configuration.Contrast; // Default 44
     
   set_1HZ_DS1307(); // Включаем синий светодиод на DS1307
   
@@ -139,7 +143,7 @@ void setup() {
   digitalWrite(CPU_LED,LOW);
 
   lcd.init(EPSON);   // Initializes lcd, using an PHILIPSdriver
-  lcd.contrast(44);  // -51's usually a good contrast value
+  lcd.contrast(Contrast);  // -51's usually a good contrast value
   lcd.clear(BLACK);  // clear the screen
 
   Serial1.begin(4800);  // GPS EM-406
@@ -158,10 +162,6 @@ void loop()
    if (Display == DISPLAY_2) Draw();
    if (Display == DISPLAY_3) ShowData(false);
    if (Display == DISPLAY_4) ShowDataGPS(false);
-   
-   
-    // Test
-    // i2scan();
   
    if (irrecv.decode(&results)) {
     
@@ -200,6 +200,23 @@ void loop()
       ShowDataGPS(true);
       break;
       
+     case CONTRAST_DW:
+      if (Contrast < 60) Contrast++;      
+      lcd.contrast(Contrast);
+      configuration.Contrast = Contrast;
+      EEPROM_writeAnything(0, configuration);
+      bt.println(Contrast);
+      break;
+      
+     case CONTRAST_UP:
+      if (Contrast > 20) Contrast++;      
+      lcd.contrast(Contrast);
+      configuration.Contrast = Contrast;
+      EEPROM_writeAnything(0, configuration);
+      bt.println(Contrast);
+      break;
+      
+      
      case DISPLAY_9:
       if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true;
       break;
@@ -218,79 +235,10 @@ void loop()
    if (Serial1.available()) {
      char nmea = Serial1.read();
      gps.encode(nmea);
-     if (GPS_OUT) bt.print(nmea);
-  
-  /*
-    if (gps.location.isValid()) {
-       bt.println(gps.location.lat(), 6);
-       bt.println(gps.location.lng(), 6);     
-     }   
-         
-     if (gps.date.isValid()) {
-       bt.print(gps.date.month());
-       bt.print(F("/"));
-       bt.print(gps.date.day());
-       bt.print(F("/"));
-       bt.println(gps.date.year());
-     }
-
-     if (gps.time.isValid()) {
-      bt.print(gps.time.hour());
-      bt.print(F(":"));
-      bt.print(gps.time.minute());
-      bt.print(F(":"));
-      bt.println(gps.time.second());
-     }
-   */
-   
+     if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);  
    }
-   
-
-  
 }
 
-
-void i2scan()
-{
-  byte error, address;
-  int nDevices;
-
-  Serial.println("Scanning...");
-
-  nDevices = 0;
-  for(address = 1; address < 127; address++ ) 
-  {
-    // The i2c_scanner uses the return value of
-    // the Write.endTransmisstion to see if
-    // a device did acknowledge to the address.
-    Wire.beginTransmission(address);
-    error = Wire.endTransmission();
-
-    if (error == 0)
-    {
-      Serial.print("I2C device found at address 0x");
-      if (address<16) 
-        Serial.print("0");
-      Serial.print(address,HEX);
-      Serial.println("  !");
-
-      nDevices++;
-    }
-    else if (error==4) 
-    {
-      Serial.print("Unknow error at address 0x");
-      if (address<16) 
-        Serial.print("0");
-      Serial.println(address,HEX);
-    }    
-  }
-  if (nDevices == 0)
-    Serial.println("No I2C devices found\n");
-  else
-    Serial.println("done\n");
-
-  delay(5000);           // wait 5 seconds for next scan
-}
 
 // --------------------------- Мигает светодиод 1 HZ от RTC DS1307 -------------------------------
 
@@ -700,12 +648,12 @@ void ShowDataGPS(boolean s) {
    
     if (gps.location.isValid()) {
       
-         dtostrf(gps.location.lat(),2,6, output);
+         dtostrf(gps.location.lat(),4,6, output);
          strcpy(f,"N: ");
          strcat(f,output);
          lcd.setStr(f,15,2,WHITE, BLACK);  
 
-         dtostrf(gps.location.lng(),2,6, output);
+         dtostrf(gps.location.lng(),4,6, output);
          strcpy(f,"E: ");
          strcat(f,output);
          lcd.setStr(f,30,2,WHITE, BLACK);  
@@ -722,7 +670,7 @@ void ShowDataGPS(boolean s) {
 
     if (gps.date.isValid() && gps.time.isValid()) {
             
-      sprintf(f,"gTime:%.2d:%.2d:%.2d",gps.time.hour(),gps.time.minute(),gps.time.second());
+      sprintf(f,"gTime:%.2d:%.2d:%.2d",gps.time.hour()+UTC,gps.time.minute(),gps.time.second());
       lcd.setStr(f,45,2,WHITE, BLACK);              
       sprintf(f,"gDate:%.2d/%.2d/%.2d",gps.date.day(),gps.date.month(),gps.date.year());
       lcd.setStr(f,60,2,WHITE, BLACK);        
@@ -734,11 +682,21 @@ void ShowDataGPS(boolean s) {
       sprintf(f,"gDate: No GPS   ");
       lcd.setStr(f,60,2,WHITE, BLACK);        
     }
-    
-   
-   // && gps.date.isValid() && gps.time.isValid()) {
-   // strcpy(f,"GPS: OK");
-   
+
+         dtostrf(gps.speed.kmph(),4,2, output);
+         strcpy(f,"Speed: ");
+         strcat(f,output);
+         lcd.setStr(f,75,2,WHITE, BLACK);  
+
+         dtostrf(gps.satellites.value(),4,2, output);
+         strcpy(f,"Satt: ");
+         strcat(f,output);
+         lcd.setStr(f,90,2,WHITE, BLACK);  
+
+         dtostrf(gps.hdop.value(),4,2, output);
+         strcpy(f,"HDOP: ");
+         strcat(f,output);
+         lcd.setStr(f,105,2,WHITE, BLACK);     
    
   }
   
