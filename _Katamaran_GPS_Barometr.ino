@@ -696,6 +696,50 @@ void ShowDataGPS(boolean s) {
                                         strcpy(f,"BT: None   "); 
    
    lcd.setStr(f,0,2,WHITE, BLACK);
+   
+   
+    if (gps.location.isValid()) {
+      
+         dtostrf(gps.location.lat(),2,6, output);
+         strcpy(f,"N: ");
+         strcat(f,output);
+         lcd.setStr(f,15,2,WHITE, BLACK);  
+
+         dtostrf(gps.location.lng(),2,6, output);
+         strcpy(f,"E: ");
+         strcat(f,output);
+         lcd.setStr(f,30,2,WHITE, BLACK);  
+
+    } else {
+
+      strcpy(f,"N: No GPS   ");
+      lcd.setStr(f,15,2,WHITE, BLACK);  
+
+      strcpy(f,"E: No GPS   ");
+      lcd.setStr(f,30,2,WHITE, BLACK);        
+    }
+    
+
+    if (gps.date.isValid() && gps.time.isValid()) {
+            
+      sprintf(f,"gTime:%.2d:%.2d:%.2d",gps.time.hour(),gps.time.minute(),gps.time.second());
+      lcd.setStr(f,45,2,WHITE, BLACK);              
+      sprintf(f,"gDate:%.2d/%.2d/%.2d",gps.date.day(),gps.date.month(),gps.date.year());
+      lcd.setStr(f,60,2,WHITE, BLACK);        
+
+    } else {
+      
+      sprintf(f,"gTime: No GPS   ");
+      lcd.setStr(f,45,2,WHITE, BLACK);              
+      sprintf(f,"gDate: No GPS   ");
+      lcd.setStr(f,60,2,WHITE, BLACK);        
+    }
+    
+   
+   // && gps.date.isValid() && gps.time.isValid()) {
+   // strcpy(f,"GPS: OK");
+   
+   
   }
   
 }
