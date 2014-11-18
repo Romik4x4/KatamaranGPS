@@ -18,9 +18,8 @@
 #define UTC 3 //  UTC+3 = Moscow
 
 struct config_t
-{
-    long alarm;
-    int mode;
+{    
+    unsigned long Display;
 
 } configuration;
 
@@ -83,6 +82,8 @@ long Temperature = 0, Pressure = 0, Altitude = 0;
 
 SoftwareSerial bt(23,22); // RX,TX  
 
+#define BT_CONNECT 30     // PA6/D30 HIGH if BT connected
+
 TinyGPSPlus gps;
 boolean GPS_OUT = false;
 
@@ -114,11 +115,12 @@ unsigned long PreviousInterval = 0;
 
 void setup() {
   
-  Display = DISPLAY_3;
-  
   Wire.begin();  // Attach I2C Protocol
     
   EEPROM_readAnything(0, configuration); // Чтения конфигурации
+  
+  Display = configuration.Display;
+    
   set_1HZ_DS1307(); // Включаем синий светодиод на DS1307
   
   // delay(1000); // For BMP085 - Зачем не понятно  
@@ -126,6 +128,8 @@ void setup() {
  
   // dps.init(); == dps.init(MODE_STANDARD, 0, true); 
   // dps.init(MODE_STANDARD, 101850, false);
+  
+  pinMode(BT_CONNECT,INPUT);
   
   dps.init(MODE_ULTRA_HIGHRES, 25000, true);  // Разрешение BMP180
   
@@ -148,12 +152,13 @@ void setup() {
 void loop()
 {
   
-  
    currentMillis = millis();
 
    if (Display == DISPLAY_1) Analog_Time_Clock();
    if (Display == DISPLAY_2) Draw();
    if (Display == DISPLAY_3) ShowData(false);
+   if (Display == DISPLAY_4) ShowDataGPS(false);
+   
    
     // Test
     // i2scan();
@@ -170,15 +175,29 @@ void loop()
      case DISPLAY_1:
       Display = DISPLAY_1;
       lcd.clear(BLACK);
+      configuration.Display = DISPLAY_1;
+      EEPROM_writeAnything(0, configuration);
       break;
      case DISPLAY_2:
       Display = DISPLAY_2;
       lcd.clear(BLACK);
+      configuration.Display = DISPLAY_2;
+      EEPROM_writeAnything(0, configuration);
       break;
      case DISPLAY_3:
       Display = DISPLAY_3;
+      configuration.Display = DISPLAY_3;
+      EEPROM_writeAnything(0, configuration);
       lcd.clear(BLACK);
       ShowData(true);
+      break;
+      
+     case DISPLAY_4:
+      Display = DISPLAY_4;
+      configuration.Display = DISPLAY_4;
+      EEPROM_writeAnything(0, configuration);
+      lcd.clear(BLACK);
+      ShowDataGPS(true);
       break;
       
      case DISPLAY_9:
@@ -661,3 +680,22 @@ void Sun( void ) {
 }
 
 */
+
+// -------------------------------- Show Data on Display 4 GPS/BT -----------------------------------
+
+void ShowDataGPS(boolean s) {
+
+   char output[20];
+   char f[30];
+   
+  if ((currentMillis - PreviousInterval > 1000) || (s == true) ) { 
+   PreviousInterval = currentMillis;  
+      
+
+   if (digitalRead(BT_CONNECT) == HIGH) strcpy(f,"BT: Connect"); else
+                                        strcpy(f,"BT: None   "); 
+   
+   lcd.setStr(f,0,2,WHITE, BLACK);
+  }
+  
+}
