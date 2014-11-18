@@ -173,7 +173,7 @@ void loop() {
      if (DEBUG) bt.println(results.value);
      
      digitalWrite(CPU_LED,HIGH);
-     delay(50);
+     delay(10);
      digitalWrite(CPU_LED,LOW);
      
     switch (results.value) {      
@@ -234,8 +234,11 @@ void loop() {
 
  // --------------------------- GPS -----------------------
  
+  if(currentMillis - PreviousInterval > 5123) { 
+   PreviousInterval = currentMillis;  
    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid())
      set_GPS_DateTime();
+  }
    
    if (Serial1.available()) {
      char nmea = Serial1.read();
@@ -249,10 +252,10 @@ void loop() {
 
 void set_1HZ_DS1307( void ) {
     
-  //Wire.beginTransmission(0x68);
-  //Wire.write(0x00);
-  //Wire.write(0x00);
-  //Wire.endTransmission();
+  Wire.beginTransmission(0x68);
+  Wire.write(0x00);
+  Wire.write(0x00);
+  Wire.endTransmission();
   
   Wire.beginTransmission(0x68);
   Wire.write(0x07);
