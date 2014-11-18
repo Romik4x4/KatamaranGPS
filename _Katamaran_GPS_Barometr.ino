@@ -12,6 +12,7 @@
 #include <BMP085.h>
 #include <EEPROM.h>
 #include "EEPROMAnything.h"
+#include <Sunrise.h>
 
 #define DEBUG 0
 
@@ -119,6 +120,7 @@ int Contrast;
 void setup() {
   
   Wire.begin();  // Attach I2C Protocol
+  delay(500);
     
   EEPROM_readAnything(0, configuration); // Чтения конфигурации
   
@@ -157,8 +159,7 @@ void setup() {
 //  MAIN LOOP 
 ///////////////////////////////////////////////////////////////////////
 
-void loop()
-{
+void loop() {
   
    currentMillis = millis();
 
@@ -205,7 +206,7 @@ void loop()
       break;
       
      case CONTRAST_DW:
-      if (Contrast < 60) Contrast++;      
+      if (Contrast < 60) Contrast++;  else Contrast=44;      
       lcd.contrast(Contrast);
       configuration.Contrast = Contrast;
       EEPROM_writeAnything(0, configuration);
@@ -213,7 +214,7 @@ void loop()
       break;
       
      case CONTRAST_UP:
-      if (Contrast > 20) Contrast++;      
+      if (Contrast > 20) Contrast--; else Contrast=44;     
       lcd.contrast(Contrast);
       configuration.Contrast = Contrast;
       EEPROM_writeAnything(0, configuration);
@@ -248,13 +249,14 @@ void loop()
 
 void set_1HZ_DS1307( void ) {
     
-  Wire.beginTransmission(0x68);
-  Wire.write(0x00);
-  Wire.write(0x00);
-  Wire.endTransmission();
+  //Wire.beginTransmission(0x68);
+  //Wire.write(0x00);
+  //Wire.write(0x00);
+  //Wire.endTransmission();
+  
   Wire.beginTransmission(0x68);
   Wire.write(0x07);
-  Wire.write(0x10);  // Set Square Wave to 1 Hz
+  Wire.write(0x10);              // Set Square Wave to 1 Hz
   Wire.endTransmission();
 
 }
@@ -523,6 +525,7 @@ void ShowData(boolean s) {
    month = bcdToDec(Wire.read());
    year = bcdToDec(Wire.read());
    
+   
    sprintf(output, "%.2d:%.2d:%.2d", hours, minutes, seconds);
    strcpy(f,"Time: ");
    strcat(f,output);
@@ -542,7 +545,7 @@ void ShowData(boolean s) {
    lcd.setStr(f,90,2,WHITE, BLACK);  
 
    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
-    strcpy(f,"GPS: OK");
+    strcpy(f,"GPS: OK  ");
     lcd.setStr(f,105,2,WHITE, BLACK);  
    } else {
     strcpy(f,"GPS: None");
