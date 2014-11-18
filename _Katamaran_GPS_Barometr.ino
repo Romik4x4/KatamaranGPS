@@ -64,6 +64,10 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 DeviceAddress RTC_Thermometer = { 0x28, 0x46, 0xBD, 0x19, 0x3, 0x0, 0x0, 0x35 };
 
+#define TEMPERATURE_PRECISION 12
+#define ds oneWire
+
+
 LCDShield lcd;  // Creates an LCDShield, named lcd
 
 int CPU_LED = 1; // PB1 on Board
@@ -137,6 +141,8 @@ void setup() {
   Serial1.begin(4800);  // GPS EM-406
   bt.begin(9600);       // Bluetooth
 
+  sensors.begin();
+  sensors.setResolution(RTC_Thermometer, TEMPERATURE_PRECISION);
 }
 
 void loop()
@@ -410,6 +416,8 @@ void setDateTime() {
 
 }
 
+// ---------------------------- Установка времени через GPS ------------------------
+
 void set_GPS_DateTime() {
   
  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
@@ -424,7 +432,7 @@ void set_GPS_DateTime() {
   byte weekDay =   1;
   byte monthDay =  gps.date.day();
   byte months =    gps.date.month();
-  byte years  =    gps.date.year();
+  byte years  =    gps.date.year() - 2000;
 
   Wire.beginTransmission(DS1307_ADDRESS);
   Wire.write(0);
@@ -443,9 +451,11 @@ void set_GPS_DateTime() {
 
 }
 
+// ---------------------------------- Отображаем аналоговые часы -----------------------------
+
 void Analog_Time_Clock( void ) {
     
-   if(currentMillis - PreviousInterval > 1000) {  // Выводим большие часы
+  if(currentMillis - PreviousInterval > 1000) { 
     PreviousInterval = currentMillis;  
   
    Wire.beginTransmission(DS1307_ADDRESS);
@@ -470,9 +480,59 @@ void Analog_Time_Clock( void ) {
   
 }
 
+
+
+// ----------------------------------- getTemperature (no delay) -------------------
+
+float f2c(float val){
+  float aux = val - 32;
+  return (aux * 5 / 9);
+}
+
+void writeTimeToScratchpad(byte* address){
+  ds.reset();
+  ds.select(address);
+  ds.write(0x44,1);
+  delay(10);
+}
+
+void readTimeFromScratchpad(byte* address, byte* data){
+  ds.reset();
+  ds.select(address);
+  ds.write(0xBE);
+  for (byte i=0;i<9;i++){
+    data[i] = ds.read();
+  }
+}
+
+float getTemperature(byte* address){
+
+  int tr;
+  byte data[12];
+
+  writeTimeToScratchpad(address);
+  readTimeFromScratchpad(address,data);
+
+  tr = data[0];
+
+  if (data[1] > 0x80){
+    tr = !tr + 1; 
+    tr = tr * -1; 
+  }
+
+  int cpc = data[7];
+  int cr = data[6];
+
+  tr = tr >> 1;
+
+  return tr - (float)0.25 + (cpc - cr)/(float)cpc;
+}
+
+// -------------------------------- Show Data on Display 3 -----------------------------------
+
 void ShowData(boolean s) {
 
-   char output[10];
+   char output[20];
    char f[30];
    
   if ((currentMillis - PreviousInterval > 1000) || (s == true) ) { 
@@ -488,16 +548,52 @@ void ShowData(boolean s) {
    lcd.setStr(f,0,2,WHITE, BLACK);
     
    dtostrf(Pressure/133.3, 4, 2, output);
-   strcat(output,"Press: ");
-   lcd.setStr(output,30,1,WHITE, BLACK);
+   strcpy(f,"Press: ");
+   strcat(f,output);
+   lcd.setStr(f,15,2,WHITE, BLACK);
 
    dtostrf(Temperature*0.1, 4, 2, output);
-   strcat(output,"T[in]: ");
-   lcd.setStr(output,45,1,WHITE, BLACK);
+   strcpy(f,"T[in]: ");
+   strcat(f,output);
+   lcd.setStr(f,30,2,WHITE, BLACK);
        
    dtostrf(battary(), 4, 2, output);
-   strcat(output,"Vin: ");
-   lcd.setStr(output,60,1,WHITE, BLACK);       
+   strcpy(f,"Vin: ");
+   strcat(f,output);
+   lcd.setStr(f,45,2,WHITE, BLACK);       
+   
+   Wire.beginTransmission(DS1307_ADDRESS);
+   Wire.write(0);
+   Wire.endTransmission();
+   Wire.requestFrom(DS1307_ADDRESS, 7);
+
+   seconds = bcdToDec(Wire.read());
+   minutes = bcdToDec(Wire.read());
+   hours = bcdToDec(Wire.read() & 0b111111); //24 hour time
+  
+   weekDay = bcdToDec(Wire.read()); //0-6 -> sunday - Saturday
+   monthDay = bcdToDec(Wire.read());
+   month = bcdToDec(Wire.read());
+   year = bcdToDec(Wire.read());
+   
+   sprintf(output, "%.2d:%.2d:%.2d", hours, minutes, seconds);
+   strcpy(f,"Time: ");
+   strcat(f,output);
+   lcd.setStr(f,60,2,WHITE, BLACK);       
+
+   sprintf(output, "%.2d/%.2d/%.2d", monthDay, month, year);
+   strcpy(f,"Date: ");
+   strcat(f,output);
+   lcd.setStr(f,75,2,WHITE, BLACK);       
+   
+   
+   float tempC = getTemperature(RTC_Thermometer);
+         tempC = f2c(tempC);
+   
+   dtostrf(tempC, 4, 2, output);
+   strcpy(f,"T[rtc]: ");
+   strcat(f,output);
+   lcd.setStr(f,90,2,WHITE, BLACK);       
    
   }
 }
