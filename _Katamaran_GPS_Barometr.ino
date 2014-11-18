@@ -13,7 +13,7 @@
 #include <EEPROM.h>
 #include "EEPROMAnything.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 #define UTC 3 //  UTC+3 = Moscow
 
@@ -23,8 +23,6 @@ struct config_t
     int mode;
 
 } configuration;
-
-char output[20];
 
 //---------------- IR Кнопки --------------------------
 
@@ -112,7 +110,7 @@ unsigned long PreviousInterval = 0;
 
 void setup() {
   
-  Display = DISPLAY_1;
+  Display = DISPLAY_3;
   
   Wire.begin();  // Attach I2C Protocol
     
@@ -149,7 +147,7 @@ void loop()
 
    if (Display == DISPLAY_1) Analog_Time_Clock();
    if (Display == DISPLAY_2) Draw();
-   if (Display == DISPLAY_3) ShowData();
+   if (Display == DISPLAY_3) ShowData(false);
    
     // Test
     // i2scan();
@@ -174,6 +172,7 @@ void loop()
      case DISPLAY_3:
       Display = DISPLAY_3;
       lcd.clear(BLACK);
+      ShowData(true);
       break;
       
      case DISPLAY_9:
@@ -309,12 +308,11 @@ void set_1HZ_DS1307( void ) {
 
 }
 
-void battary( void ) {
+float battary( void ) {
   
   int sensorValue = analogRead(A4); // PA4/D28
-  // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
   float voltage = sensorValue * (5.0 / 1023.0);
-  // print out the value you re
+  return(voltage);
   
 }
 
@@ -472,38 +470,34 @@ void Analog_Time_Clock( void ) {
   
 }
 
-void ShowData( void ) {
+void ShowData(boolean s) {
 
-  
-   float a = 10.87;
-   float A,P,T;
+   char output[10];
+   char f[30];
    
-  if(currentMillis - PreviousInterval > 2000) {  // Выводим большие часы
+  if ((currentMillis - PreviousInterval > 1000) || (s == true) ) { 
    PreviousInterval = currentMillis;  
-   
-   lcd.clear(BLACK);
-   
-   strcpy(output,FloatToString(a));
-      lcd.setStr(output,0,0,WHITE, BLACK);
-
+      
    dps.getPressure(&Pressure); 
    dps.getAltitude(&Altitude); 
    dps.getTemperature(&Temperature);
 
-    A = Altitude/100.0;
-    strcpy(output,FloatToString(A));
-       lcd.setStr(output,15,0,WHITE, BLACK);
-
-    P = Pressure/133.3;
+   dtostrf(Altitude/100.0, 4, 2, output);
+   strcpy(f,"Alt: ");
+   strcat(f,output);
+   lcd.setStr(f,0,2,WHITE, BLACK);
     
-    strcpy(output,FloatToString(P));
-       lcd.setStr(output,30,0,WHITE, BLACK);
+   dtostrf(Pressure/133.3, 4, 2, output);
+   strcat(output,"Press: ");
+   lcd.setStr(output,30,1,WHITE, BLACK);
 
-    T = Temperature*0.1;
-    strcpy(output,FloatToString(T)); 
-       lcd.setStr(output,45,0,WHITE, BLACK);
-
-   
+   dtostrf(Temperature*0.1, 4, 2, output);
+   strcat(output,"T[in]: ");
+   lcd.setStr(output,45,1,WHITE, BLACK);
+       
+   dtostrf(battary(), 4, 2, output);
+   strcat(output,"Vin: ");
+   lcd.setStr(output,60,1,WHITE, BLACK);       
    
   }
 }
@@ -521,29 +515,6 @@ void Draw( void ) {
    Display = DISPLAY_NONE;
 
 }
-
-
-
-char* FloatToString(float temp) {
-  
-  char ascii[20];
-
-  int frac;
-  int rnd;
-
-  rnd = (unsigned int)(temp*1000)%10;
-  frac=(unsigned int)(temp*100)%100;  
-  if (rnd>=5) frac=frac+1;
-  itoa((int)temp,ascii,10);
-  strcat(ascii,".");
-
-  if (frac<10) { itoa(0,&ascii[strlen(ascii)],10); } 
-   
-   itoa(frac,&ascii[strlen(ascii)],10); 
-    
-  return strcat(ascii,'\0');
-  
-} 
 
 // ---------------- Sun Rise and Sun Set -------------------------------
 
