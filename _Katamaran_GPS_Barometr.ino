@@ -29,13 +29,13 @@ struct config_t
 
 #define DISPLAY_1 16724175 // 1 Analog Clock
 #define DISPLAY_2 16718055 // 2 Draw
-#define DISPLAY_3 16743045 // 3
-#define DISPLAY_4 16716015 // 4
-#define DISPLAY_5 16726215 // 5
-#define DISPLAY_6 16734885 // 6
+#define DISPLAY_3 16743045 // 3 Date,Battary,Barametr and etc.
+#define DISPLAY_4 16716015 // 4 GPS Info
+#define DISPLAY_5 16726215 // 5 SunRise and SunSet
+#define DISPLAY_6 16734885 // 6 Voltmetr
 #define DISPLAY_7 16728765 // 7
 #define DISPLAY_8 16730805 // 8
-#define DISPLAY_9 16732845 // 9  GPS Output
+#define DISPLAY_9 16732845 // 9  GPS Output if BT is connected
 
 #define CONTRAST_UP 16769055 // +
 #define CONTRAST_DW 16754775 // -
@@ -168,6 +168,7 @@ void loop() {
    if (Display == DISPLAY_3) ShowData(false);
    if (Display == DISPLAY_4) ShowDataGPS(false);
    if (Display == DISPLAY_5) ShowDataSun(false);
+   if (Display == DISPLAY_6) ShowDataVolt(false); 
   
    if (irrecv.decode(&results)) {
     
@@ -213,6 +214,15 @@ void loop() {
       lcd.clear(BLACK);
       ShowDataSun(true);
       break;
+      
+     case DISPLAY_6:
+      Display = DISPLAY_6;
+      configuration.Display = DISPLAY_6;
+      EEPROM_writeAnything(0, configuration);
+      lcd.clear(BLACK);
+      ShowDataVolt(true);
+      break;
+      
       
      case CONTRAST_DW:
       if (Contrast < 60) Contrast++;  else Contrast=44;      
@@ -570,20 +580,21 @@ void ShowData(boolean s) {
 
 void Draw( void ) {
   
-//   int segmentsRed[1] = {ENE};
-  // lcd.setArc(60,50,40,segmentsRed,sizeof(segmentsRed),5,RED);
-  // int segmentsYellow[1] = {NNE};
-  // lcd.setArc(60,50,40,segmentsYellow,sizeof(segmentsYellow),10,YELLOW);
+ int segmentsRed[1] = {ENE};
+ lcd.setArc(60,50,40,segmentsRed,sizeof(segmentsRed),5,RED);
+ int segmentsYellow[1] = {NNE};
+ lcd.setArc(60,50,40,segmentsYellow,sizeof(segmentsYellow),10,YELLOW);
   
  int segments[4] = {WNW,NNW,NNE,ENE};
   
-   lcd.setArc(60,50,40,segments,sizeof(segments),FILL,YELLOW);
-   delay(100);
-   lcd.setArc(60,50,40,segments,sizeof(segments),5,YELLOW);
+ lcd.setArc(60,50,40,segments,sizeof(segments),FILL,YELLOW);
+ delay(100);
+ lcd.setArc(60,50,40,segments,sizeof(segments),FILL,BLACK);
+ delay(100);
    
-//   lcd.setCircle(90,100,20,PINK,FILL);
-//   lcd.setCircle(90,35,25,CYAN,3);
-   Display = DISPLAY_NONE;
+ lcd.setCircle(90,100,20,PINK,FILL);
+ lcd.setCircle(90,35,25,CYAN,3);
+ Display = DISPLAY_NONE;
 
 }
 
@@ -668,7 +679,7 @@ void ShowDataSun( boolean s) {
   byte m_set=0,h_set=0;
   byte m_rise=0,d,h_rise=0;
   int t;   
-  
+  int segments[4] = {WNW,NNW,NNE,ENE};  
   char f[30];
    
   if ((currentMillis - PreviousInterval > 1000) || (s == true) ) { 
@@ -721,7 +732,54 @@ void ShowDataSun( boolean s) {
     }
 
 }
+ 
+   lcd.setArc(131,65,30,segments,sizeof(segments),FILL,WHITE);
+   delay(100);
+   lcd.setArc(131,65,30,segments,sizeof(segments),FILL,BLACK);
+   delay(100); 
   
+}
+// ------------------------------- Вольтметр -----------------------------
+
+void ShowDataVolt(boolean s) {
+
+  // x,y x,y
+  lcd.setLine(1,14,105,14,WHITE);
+  lcd.setLine(107,0,107,129,WHITE);
+
+  // Вольты  
+  lcd.setChar('6',  15,12, WHITE,BLACK);
+  lcd.setChar('5',  30,12, WHITE,BLACK);
+  lcd.setChar('4',  45,12, WHITE,BLACK);
+  lcd.setChar('3',  60,12, WHITE,BLACK);
+  lcd.setChar('2',  75,12, WHITE,BLACK);
+  lcd.setChar('1',  90,12, WHITE,BLACK);
+  lcd.setChar('0', 105,12, WHITE,BLACK);
+  
+  // Время
+  lcd.setChar('0', 122,21, WHITE,BLACK);
+  lcd.setChar('4', 122,32, RED,BLACK);
+  lcd.setChar('8', 122,42+1, WHITE,BLACK);
+  
+  lcd.setChar('1', 122,52+1, RED,BLACK);
+  lcd.setChar('2', 122,62+1, RED,BLACK);
+  
+  lcd.setChar('1', 122,72+2, WHITE,BLACK);
+  lcd.setChar('6', 122,82+2, WHITE,BLACK);
+  
+  lcd.setChar('2', 122,92+4,  RED,BLACK);
+  lcd.setChar('0', 122,102+4, RED,BLACK);
+  
+  lcd.setChar('2', 122,112+6, WHITE,BLACK);
+  lcd.setChar('4', 122,122+6, WHITE,BLACK);
+  
+
+  
+  if ((currentMillis - PreviousInterval > 1000) || (s == true) ) { 
+   PreviousInterval = currentMillis;  
+   int a = map(4.3,0.0,6.0,1,100);
+   bt.println(a);
+  }  
   
 }
 
