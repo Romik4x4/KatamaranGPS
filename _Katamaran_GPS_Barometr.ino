@@ -11,7 +11,7 @@
 #include <ColorLCDShield.h>
 #include <BMP085.h>
 #include <EEPROM.h>
-#include "EEPROMAnything.h"
+#include <EEPROMAnything.h>
 #include <Sunrise.h>
 
 #define DEBUG 0
@@ -167,6 +167,7 @@ void loop() {
    if (Display == DISPLAY_2) Draw();
    if (Display == DISPLAY_3) ShowData(false);
    if (Display == DISPLAY_4) ShowDataGPS(false);
+   if (Display == DISPLAY_5) ShowDataSun(false);
   
    if (irrecv.decode(&results)) {
     
@@ -203,6 +204,14 @@ void loop() {
       EEPROM_writeAnything(0, configuration);
       lcd.clear(BLACK);
       ShowDataGPS(true);
+      break;
+      
+     case DISPLAY_5:
+      Display = DISPLAY_5;
+      configuration.Display = DISPLAY_5;
+      EEPROM_writeAnything(0, configuration);
+      lcd.clear(BLACK);
+      ShowDataSun(true);
       break;
       
      case CONTRAST_DW:
@@ -561,83 +570,22 @@ void ShowData(boolean s) {
 
 void Draw( void ) {
   
-   int segmentsRed[1] = {ENE};
-   lcd.setArc(60,50,40,segmentsRed,sizeof(segmentsRed),5,RED);
-   int segmentsYellow[1] = {NNE};
-   lcd.setArc(60,50,40,segmentsYellow,sizeof(segmentsYellow),10,YELLOW);
-   int segments[2] = {WNW,NNW};
-   lcd.setArc(60,50,40,segments,sizeof(segments),FILL,GREEN);
-   lcd.setCircle(90,100,20,PINK,FILL);
-   lcd.setCircle(90,35,25,CYAN,3);
+//   int segmentsRed[1] = {ENE};
+  // lcd.setArc(60,50,40,segmentsRed,sizeof(segmentsRed),5,RED);
+  // int segmentsYellow[1] = {NNE};
+  // lcd.setArc(60,50,40,segmentsYellow,sizeof(segmentsYellow),10,YELLOW);
+  
+ int segments[4] = {WNW,NNW,NNE,ENE};
+  
+   lcd.setArc(60,50,40,segments,sizeof(segments),FILL,YELLOW);
+   delay(100);
+   lcd.setArc(60,50,40,segments,sizeof(segments),5,YELLOW);
+   
+//   lcd.setCircle(90,100,20,PINK,FILL);
+//   lcd.setCircle(90,35,25,CYAN,3);
    Display = DISPLAY_NONE;
 
 }
-
-// ---------------- Sun Rise and Sun Set -------------------------------
-
-/*
-void Sun( void ) { 
-  
-  int m,h;
-  int t;
-
-  int year;
-  byte month, day, hour, minutes, second, hundredths;
-  unsigned long age;
-  unsigned long fix_age;
-  float latitude, longitude;
-  unsigned short tout;
-  
-  Wire.beginTransmission(DS1307_ADDRESS);
-  Wire.write(0);
-  Wire.endTransmission();
-  Wire.requestFrom(DS1307_ADDRESS, 7);
-
-  int xsecond = bcdToDec(Wire.read());
-  int xminute = bcdToDec(Wire.read());
-  int xhour = bcdToDec(Wire.read() & 0b111111); //24 hour time
-  int xweekDay = bcdToDec(Wire.read()); //0-6 -> sunday - Saturday
-  int xmonthDay = bcdToDec(Wire.read());
-  int xmonth = bcdToDec(Wire.read());
-  int xyear = bcdToDec(Wire.read());
-  
-  gps.crack_datetime(&year, &month, &day, &hour, &minutes, &second, &hundredths, &age);
- 
-  if (age != TinyGPS::GPS_INVALID_AGE) {
-      
-  gps.f_get_position(&latitude, &longitude, &fix_age);
-   
-  Sunrise mySunrise(latitude, longitude,4);
-
-  mySunrise.Actual();
-
- if (Display == 2) {
-   t = mySunrise.Rise(xmonth,xmonthDay);
-  if(t >= 0) {
-    h = mySunrise.Hour();
-    m = mySunrise.Minute();
-    tout = h * 100;
-    tout = tout + m;  
-    write_led(tout,10,1);
-  } else {  write_led_numbers(0,0,0,0); }
- }
-  
- if (Display == 3) {
-   t = mySunrise.Set(xmonth,xmonthDay);
-  if(t >= 0) {
-    h = mySunrise.Hour();
-    m = mySunrise.Minute();
-    tout = h * 100;
-    tout = tout + m;  
-    write_led(tout,10,1);
-  } else { write_led_numbers(0,0,0,0); }
- }
- 
- } else write_led_numbers(0,0,0,0);
-  
-}
-
-*/
 
 // -------------------------------- Show Data on Display 4 GPS/BT -----------------------------------
 
@@ -711,3 +659,69 @@ void ShowDataGPS(boolean s) {
   }
   
 }
+
+
+// ---------------- Sun Rise and Sun Set -------------------------------
+
+void ShowDataSun( boolean s) { 
+  
+  byte m_set=0,h_set=0;
+  byte m_rise=0,d,h_rise=0;
+  int t;   
+  
+  char f[30];
+   
+  if ((currentMillis - PreviousInterval > 1000) || (s == true) ) { 
+   PreviousInterval = currentMillis;  
+
+   strcpy(f, "Sun:");
+   lcd.setStr(f,0,2,YELLOW,BLACK);   
+  
+  if (gps.location.isValid()) {
+      
+   Sunrise mySunrise(gps.location.lat(),gps.location.lng(),UTC);
+   mySunrise.Actual();
+
+   t = mySunrise.Rise(11,19); // Month, Day
+   if(t >= 0) {
+    h_rise = mySunrise.Hour();
+    m_rise = mySunrise.Minute();
+   } else { h_rise = 0; m_rise = 0; }    
+   
+   t = mySunrise.Set(11,19); // Month, Day
+   if(t >= 0) {
+    h_set = mySunrise.Hour();
+    m_set = mySunrise.Minute();  
+   } else { h_set = 0; m_set = 0; }
+   
+  }
+
+   sprintf(f, "Sun Rise: %.2d:%.2d",h_rise,m_rise);
+   lcd.setStr(f,15+2,2,WHITE, BLACK);   
+   
+   sprintf(f, "Sun Set:  %.2d:%.2d",h_set,m_set);
+   lcd.setStr(f,30+2,2,WHITE, BLACK);         
+
+   strcpy(f, "Real Time:");
+   lcd.setStr(f,45+4,2,YELLOW,BLACK);   
+  
+  if (gps.date.isValid() && gps.time.isValid()) {
+            
+      sprintf(f,"gTime:%.2d:%.2d:%.2d",gps.time.hour()+UTC,gps.time.minute(),gps.time.second());
+      lcd.setStr(f,60+7,2,WHITE, BLACK);              
+      sprintf(f,"gDate:%.2d/%.2d/%.2d",gps.date.day(),gps.date.month(),gps.date.year());
+      lcd.setStr(f,75+7,2,WHITE, BLACK);        
+
+    } else {
+      
+      sprintf(f,"gTime: No GPS   ");
+      lcd.setStr(f,60+7,2,WHITE, BLACK);              
+      sprintf(f,"gDate: No GPS   ");
+      lcd.setStr(f,75+7,2,WHITE, BLACK);        
+    }
+
+}
+  
+  
+}
+
