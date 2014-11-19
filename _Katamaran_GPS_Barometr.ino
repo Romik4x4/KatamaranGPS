@@ -169,7 +169,7 @@ void loop() {
    if (Display == DISPLAY_2) Draw();
    if (Display == DISPLAY_3) ShowData(false);
    if (Display == DISPLAY_4) ShowDataGPS(false);
-   if (Display == DISPLAY_5) ShowDataSun(false);
+ //  if (Display == DISPLAY_5) ShowDataSun(false);
    if (Display == DISPLAY_6) ShowDataVolt(false); 
   
    if (irrecv.decode(&results)) {
@@ -745,7 +745,7 @@ void ShowDataSun( boolean s) {
 
 void ShowDataVolt(boolean s) {
 
-  if ((currentMillis - PreviousInterval > 1000) || (s == true) ) {  // 900 000
+  if ((currentMillis - PreviousInterval > 300000) || (s == true) ) {  // 900 000
    PreviousInterval = currentMillis;  
   
   // x,y x,y
