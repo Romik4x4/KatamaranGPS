@@ -14,6 +14,8 @@
 #include <EEPROMAnything.h>
 #include <Sunrise.h>
 
+int y_volts = 15;
+
 #define DEBUG 0
 
 #define UTC 3 //  UTC+3 = Moscow
@@ -743,7 +745,11 @@ void ShowDataSun( boolean s) {
 
 void ShowDataVolt(boolean s) {
 
+  if ((currentMillis - PreviousInterval > 1000) || (s == true) ) {  // 900 000
+   PreviousInterval = currentMillis;  
+  
   // x,y x,y
+  
   lcd.setLine(1,14,105,14,WHITE);
   lcd.setLine(107,0,107,129,WHITE);
 
@@ -773,12 +779,18 @@ void ShowDataVolt(boolean s) {
   lcd.setChar('2', 122,112+6, WHITE,BLACK);
   lcd.setChar('4', 122,122+6, WHITE,BLACK);
   
+  // lcd.setPixel(WHITE, 106,15);
 
+  // for(int y=15;y<130;y++) {
+  // int x=map(random(0,6),0,6,106,0);
+  //  lcd.setLine(x,y,106,y, WHITE);
+  // }
+
+  int x = map(battary(),0.0,5.0,106,0);
+  lcd.setLine(x,y_volts,106,y_volts, WHITE);
+  y_volts++; if (y_volts > 130) y_volts=15;
+  bt.println(x);
   
-  if ((currentMillis - PreviousInterval > 1000) || (s == true) ) { 
-   PreviousInterval = currentMillis;  
-   int a = map(4.3,0.0,6.0,1,100);
-   bt.println(a);
   }  
   
 }
