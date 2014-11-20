@@ -1,3 +1,4 @@
+
 ///////////////////////////////////////
 // Arduino 1.0.6
 // ATMega 1284P (4K Bytes EEPROM)
@@ -14,6 +15,7 @@
 #include <EEPROM.h>
 #include <EEPROMAnything.h>
 #include <Sunrise.h>
+#include <I2C_eeprom.h>
 
 int y_volts = 15;
 int y_pres = 15;
@@ -26,7 +28,7 @@ struct config_t
 {    
     unsigned long Display;
     int Contrast;
-
+  
 } configuration;
 
 //---------------- IR Кнопки --------------------------
@@ -69,13 +71,21 @@ struct config_t
 // http://www.pjrc.com/teensy/td_libs_OneWire.html
 // http://bigbarrel.ru/eeprom/
 
-#define EEPROM_ADDRESS      0x51 // 24LC256
-#define EEPROM_ADDRESS_RTC  0x50 // EEPROM on RTC 
+#define EEPROM_ADDRESS_256      (0x51) // 24LC256
+#define EEPROM_ADDRESS_32       (0x50) // EEPROM on RTC 
 
 #define BMP085_ADDRESS  0x77 // BMP085
 #define DS1307_ADDRESS  0x68 // DS1307
 
-#define ONE_WIRE_BUS 20
+#define EE24LC32MAXBYTES  32768/8
+#define EE24LC256MAXBYTES 262144/8
+
+I2C_eeprom eeprom32(EEPROM_ADDRESS_32  ,EE24LC32MAXBYTES);
+I2C_eeprom eeprom256(EEPROM_ADDRESS_256,EE24LC256MAXBYTES);
+
+// ee.writeByte(Address, Data); readByte(Address);
+
+#define ONE_WIRE_BUS 20  // D20
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
@@ -83,7 +93,6 @@ DeviceAddress RTC_Thermometer = { 0x28, 0x46, 0xBD, 0x19, 0x3, 0x0, 0x0, 0x35 };
 
 #define TEMPERATURE_PRECISION 12
 #define ds oneWire
-
 
 LCDShield lcd;  // Creates an LCDShield, named lcd
 
@@ -131,6 +140,7 @@ unsigned long Display;
 unsigned long currentMillis;
 unsigned long PreviousInterval = 0;     // Для всех внутренних функций
 unsigned long loopPreviousInterval = 0; // Для управления GPS SetDateTime
+unsigned long voltPreviousInterval = 0;  // Для вольтметра
 
 int Contrast = 44;
 
@@ -781,8 +791,8 @@ void ShowDataSun( boolean s) {
 
 void ShowDataVolt(boolean s) {
 
-  if ((currentMillis - PreviousInterval > 300000) || (s == true) ) {  // 900 000
-   PreviousInterval = currentMillis;  
+  if ((currentMillis - voltPreviousInterval > 30000) || (s == true) ) {  // 900 000
+   voltPreviousInterval = currentMillis;  
   
   // x,y x,y
   
@@ -881,9 +891,10 @@ void ShowBMP085(boolean s) {
   int x = map((Pressure/133.3),600,900,106,0);
   lcd.setLine(x,y_pres,106,y_pres, WHITE);
   y_pres++; if (y_pres > 130) y_pres=15;
-  
-  bt.println(x);
+ 
   
   }  
   
 }
+
+
