@@ -1,3 +1,5 @@
+#include <romikEEPROM.h>
+
 
 ///////////////////////////////////////
 // Arduino 1.0.6
@@ -17,6 +19,9 @@
 #include <Sunrise.h>
 #include <I2C_eeprom.h>
 
+
+// ------------------------------
+
 int y_volts = 15;
 int y_pres = 15;
 
@@ -30,6 +35,11 @@ struct config_t
     int Contrast;
   
 } configuration;
+
+struct config_a
+{
+  long bar;
+} xx;
 
 //---------------- IR Кнопки --------------------------
 
@@ -184,12 +194,35 @@ void setup() {
   sensors.setResolution(RTC_Thermometer, TEMPERATURE_PRECISION);
 
 
-  eeprom32.writeByte(0,'a');
-  bt.println(eeprom32.readByte(0))
+ // eeprom32.writeByte(0,'a');
+ // bt.println(char(eeprom32.readByte(0)));
   
-  eeprom256.writeByte(0,'b');
-  bt.println(eeprom256.readByte(0))
+ // eeprom256.writeByte(0,'b');
+ // bt.println(char(eeprom256.readByte(0)));
   
+  xx.bar = 770;
+  
+  unsigned int ee = 0;
+  
+  const byte* p = (const byte*)(const void*)&xx;
+
+    unsigned int i;
+
+    for (i = 0; i < sizeof(xx); i++)
+
+	  eeprom256.writeByte(ee++, *p++);
+  
+  bt.println(ee);
+  
+  ee = 0;
+  byte* pp = (byte*)(void*)&xx; 
+
+    for (i = 0; i < sizeof(xx); i++)
+
+	  *pp++ = eeprom256.readByte(ee++);
+
+    bt.println(xx.bar);
+    
 }
 
 ///////////////////////////////////////////////////////////////////////
