@@ -182,6 +182,14 @@ void setup() {
 
   sensors.begin();
   sensors.setResolution(RTC_Thermometer, TEMPERATURE_PRECISION);
+
+
+  eeprom32.writeByte(0,'a');
+  bt.println(eeprom32.readByte(0))
+  
+  eeprom256.writeByte(0,'b');
+  bt.println(eeprom256.readByte(0))
+  
 }
 
 ///////////////////////////////////////////////////////////////////////
