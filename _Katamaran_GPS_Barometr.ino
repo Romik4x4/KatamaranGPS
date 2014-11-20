@@ -202,24 +202,17 @@ void setup() {
   
   xx.bar = 770;
   
-  unsigned int ee = 0;
-  
-  const byte* p = (const byte*)(const void*)&xx;
-
-    unsigned int i;
-
-    for (i = 0; i < sizeof(xx); i++)
-
-	  eeprom256.writeByte(ee++, *p++);
+    unsigned int ee = 0;  
+    const byte* p = (const byte*)(const void*)&xx;
+    for (unsigned int i = 0; i < sizeof(xx); i++) 
+     eeprom256.writeByte(ee++, *p++);
   
   bt.println(ee);
   
   ee = 0;
-  byte* pp = (byte*)(void*)&xx; 
-
-    for (i = 0; i < sizeof(xx); i++)
-
-	  *pp++ = eeprom256.readByte(ee++);
+   byte* pp = (byte*)(void*)&xx; 
+   for (unsigned int i = 0; i < sizeof(xx); i++)
+    *pp++ = eeprom256.readByte(ee++);
 
     bt.println(xx.bar);
     
