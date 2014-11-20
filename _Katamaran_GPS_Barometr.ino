@@ -15,8 +15,9 @@
 #include <Sunrise.h>
 
 int y_volts = 15;
+int y_pres = 15;
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define UTC 3 //  UTC+3 = Moscow
 
@@ -38,6 +39,18 @@ struct config_t
 #define DISPLAY_7 16728765 // 7
 #define DISPLAY_8 16730805 // 8
 #define DISPLAY_9 16732845 // 9  GPS Output if BT is connected
+
+// Для другово пульта кнопки
+
+#define DIS_1 14614783
+#define DIS_2 14647423
+#define DIS_3 14631103
+#define DIS_4 14663743
+#define DIS_5 14622943
+#define DIS_6 14655583
+#define DIS_7 14639263
+#define DIS_8 14671903
+#define DIS_9 14618863
 
 #define CONTRAST_UP 16769055 // +
 #define CONTRAST_DW 16754775 // -
@@ -169,16 +182,29 @@ void loop() {
    if (Display == DISPLAY_2) Draw();
    if (Display == DISPLAY_3) ShowData(false);
    if (Display == DISPLAY_4) ShowDataGPS(false);
- //  if (Display == DISPLAY_5) ShowDataSun(false);
-   if (Display == DISPLAY_6) ShowDataVolt(false); 
+   if (Display == DISPLAY_5) ShowDataSun(false);
+   if (Display == DISPLAY_6) ShowDataVolt(false);
+   if (Display == DISPLAY_8) ShowBMP085(false);
+   
   
    if (irrecv.decode(&results)) {
     
      if (DEBUG) bt.println(results.value);
      
      digitalWrite(CPU_LED,HIGH);
-     delay(10);
      digitalWrite(CPU_LED,LOW);
+     
+    switch (results.value) {      
+     case DIS_1: results.value = DISPLAY_1; break;
+     case DIS_2: results.value = DISPLAY_2; break;
+     case DIS_3: results.value = DISPLAY_3; break;
+     case DIS_4: results.value = DISPLAY_4; break;
+     case DIS_5: results.value = DISPLAY_5; break;
+     case DIS_6: results.value = DISPLAY_6; break;
+     case DIS_7: results.value = DISPLAY_7; break;
+     case DIS_8: results.value = DISPLAY_8; break;
+     case DIS_9: results.value = DISPLAY_9; break;
+    }
      
     switch (results.value) {      
      case DISPLAY_1:
@@ -225,6 +251,13 @@ void loop() {
       ShowDataVolt(true);
       break;
       
+     case DISPLAY_8:
+      Display = DISPLAY_8;
+      configuration.Display = DISPLAY_8;
+      EEPROM_writeAnything(0, configuration);
+      lcd.clear(BLACK);
+      ShowBMP085(true);
+      break;
       
      case CONTRAST_DW:
       if (Contrast < 60) Contrast++;  else Contrast=44;      
@@ -735,11 +768,9 @@ void ShowDataSun( boolean s) {
 
 }
  
-   lcd.setArc(131,65,30,segments,sizeof(segments),FILL,WHITE);
-   delay(100);
-   lcd.setArc(131,65,30,segments,sizeof(segments),FILL,BLACK);
-   delay(100); 
-  
+   // lcd.setArc(131,65,30,segments,sizeof(segments),FILL,WHITE);   
+   // lcd.setArc(131,65,30,segments,sizeof(segments),FILL,BLACK);
+   
 }
 // ------------------------------- Вольтметр -----------------------------
 
@@ -789,7 +820,62 @@ void ShowDataVolt(boolean s) {
   int x = map(battary(),0.0,5.0,106,0);
   lcd.setLine(x,y_volts,106,y_volts, WHITE);
   y_volts++; if (y_volts > 130) y_volts=15;
-  bt.println(x);
+  
+  }  
+  
+}
+
+// ---------------- Barometer Graphics ------------------------
+
+void ShowBMP085(boolean s) {
+
+  if ((currentMillis - PreviousInterval > 300000) || (s == true) ) {  // 900 000
+   PreviousInterval = currentMillis;  
+  
+  dps.getPressure(&Pressure);  // Get data from BMP085
+
+  // x,y x,y две линии по X,Y
+  
+  lcd.setLine(1,14,105,14,WHITE);
+  lcd.setLine(107,0,107,129,WHITE);
+
+  // Давление  
+
+  lcd.setChar('Д',  15,12, WHITE,BLACK);
+  lcd.setChar('5',  30,12, WHITE,BLACK);
+  lcd.setChar('4',  45,12, WHITE,BLACK);
+  lcd.setChar('3',  60,12, WHITE,BLACK);
+  lcd.setChar('2',  75,12, WHITE,BLACK);
+  lcd.setChar('1',  90,12, WHITE,BLACK);
+  lcd.setChar('0', 105,12, WHITE,BLACK);
+  
+  // Время
+  lcd.setChar('0', 122,21, WHITE,BLACK);
+  lcd.setChar('4', 122,32, RED,BLACK);
+  lcd.setChar('8', 122,42+1, WHITE,BLACK);
+  
+  lcd.setChar('1', 122,52+1, RED,BLACK);
+  lcd.setChar('2', 122,62+1, RED,BLACK);
+  
+  lcd.setChar('1', 122,72+2, WHITE,BLACK);
+  lcd.setChar('6', 122,82+2, WHITE,BLACK);
+  
+  lcd.setChar('2', 122,92+4,  RED,BLACK);
+  lcd.setChar('0', 122,102+4, RED,BLACK);
+  
+  lcd.setChar('2', 122,112+6, WHITE,BLACK);
+  lcd.setChar('4', 122,122+6, WHITE,BLACK);
+  
+  // lcd.setPixel(WHITE, 106,15);
+
+  // for(int y=15;y<130;y++) {
+  // int x=map(random(0,6),0,6,106,0);
+  //  lcd.setLine(x,y,106,y, WHITE);
+  // }
+
+  int x = map(Pressure,600,900,106,0);
+  lcd.setLine(x,y_pres,106,y_pres, WHITE);
+  y_pres++; if (y_pres > 130) y_pres=15;
   
   }  
   
