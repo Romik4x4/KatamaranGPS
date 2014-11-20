@@ -1,5 +1,6 @@
 ///////////////////////////////////////
 // Arduino 1.0.6
+// ATMega 1284P (4K Bytes EEPROM)
 ///////////////////////////////////////
 
 #include <TinyGPS++.h>
@@ -69,7 +70,7 @@ struct config_t
 // http://bigbarrel.ru/eeprom/
 
 #define EEPROM_ADDRESS      0x51 // 24LC256
-#define EEPROM_ADDRESS_RTC  0x50 // EEPROM on RTC
+#define EEPROM_ADDRESS_RTC  0x50 // EEPROM on RTC 
 
 #define BMP085_ADDRESS  0x77 // BMP085
 #define DS1307_ADDRESS  0x68 // DS1307
@@ -128,9 +129,12 @@ int weekDay,monthDay,month,year;
 unsigned long Display;
 
 unsigned long currentMillis;
-unsigned long PreviousInterval = 0; 
+unsigned long PreviousInterval = 0;     // Для всех внутренних функций
+unsigned long loopPreviousInterval = 0; // Для управления GPS SetDateTime
 
-int Contrast;
+int Contrast = 44;
+
+boolean start = true; // Если была перегрузка.
 
 void setup() {
   
@@ -180,12 +184,13 @@ void loop() {
 
    if (Display == DISPLAY_1) Analog_Time_Clock();
    if (Display == DISPLAY_2) Draw();
-   if (Display == DISPLAY_3) ShowData(false);
-   if (Display == DISPLAY_4) ShowDataGPS(false);
-   if (Display == DISPLAY_5) ShowDataSun(false);
-   if (Display == DISPLAY_6) ShowDataVolt(false);
-   if (Display == DISPLAY_8) ShowBMP085(false);
+   if (Display == DISPLAY_3) ShowData(start);
+   if (Display == DISPLAY_4) ShowDataGPS(start);
+   if (Display == DISPLAY_5) ShowDataSun(start);
+   if (Display == DISPLAY_6) ShowDataVolt(start);
+   if (Display == DISPLAY_8) ShowBMP085(start);
    
+   start = false; // Если была перегрузка
   
    if (irrecv.decode(&results)) {
     
@@ -288,8 +293,8 @@ void loop() {
 
  // --------------------------- GPS -----------------------
  
-  if(currentMillis - PreviousInterval > 5123) { 
-   PreviousInterval = currentMillis;  
+  if(currentMillis - loopPreviousInterval > 5123) { 
+   loopPreviousInterval = currentMillis;  
    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid())
      set_GPS_DateTime();
   }
@@ -829,7 +834,7 @@ void ShowDataVolt(boolean s) {
 
 void ShowBMP085(boolean s) {
 
-  if ((currentMillis - PreviousInterval > 300000) || (s == true) ) {  // 900 000
+  if ((currentMillis - PreviousInterval > 30000) || (s == true) ) {  // 900 000
    PreviousInterval = currentMillis;  
   
   dps.getPressure(&Pressure);  // Get data from BMP085
@@ -841,13 +846,13 @@ void ShowBMP085(boolean s) {
 
   // Давление  
 
-  lcd.setChar('Д',  15,12, WHITE,BLACK);
-  lcd.setChar('5',  30,12, WHITE,BLACK);
-  lcd.setChar('4',  45,12, WHITE,BLACK);
-  lcd.setChar('3',  60,12, WHITE,BLACK);
-  lcd.setChar('2',  75,12, WHITE,BLACK);
-  lcd.setChar('1',  90,12, WHITE,BLACK);
-  lcd.setChar('0', 105,12, WHITE,BLACK);
+  lcd.setChar('B',  15,12, WHITE,BLACK);
+  lcd.setChar('A',  30,12, WHITE,BLACK);
+  lcd.setChar('R',  45,12, WHITE,BLACK);
+  lcd.setChar('O',  60,12, WHITE,BLACK);
+  lcd.setChar('M',  75,12, WHITE,BLACK);
+  lcd.setChar('T',  90,12, WHITE,BLACK);
+  lcd.setChar('R', 105,12, WHITE,BLACK);
   
   // Время
   lcd.setChar('0', 122,21, WHITE,BLACK);
@@ -873,11 +878,12 @@ void ShowBMP085(boolean s) {
   //  lcd.setLine(x,y,106,y, WHITE);
   // }
 
-  int x = map(Pressure,600,900,106,0);
+  int x = map((Pressure/133.3),600,900,106,0);
   lcd.setLine(x,y_pres,106,y_pres, WHITE);
   y_pres++; if (y_pres > 130) y_pres=15;
+  
+  bt.println(x);
   
   }  
   
 }
-
