@@ -23,6 +23,9 @@
 
 int y_volts = 15;
 int y_pres = 15;
+boolean bar_color = true;
+
+// -------------------------------
 
 #define UTC 3 //  UTC+3 = Moscow
 
@@ -183,7 +186,7 @@ void setup() {
   // dps.init(); == dps.init(MODE_STANDARD, 0, true); 
   // dps.init(MODE_STANDARD, 101850, false);
   
-  pinMode(BT_CONNECT,INPUT);
+  pinMode(BT_CONNECT,INPUT); // Есть ли Bluetooth соединение
   
   dps.init(MODE_ULTRA_HIGHRES, 25000, true);  // Разрешение BMP180
   
@@ -201,7 +204,6 @@ void setup() {
 
   sensors.begin();
   sensors.setResolution(RTC_Thermometer, TEMPERATURE_PRECISION);
-
 
  // eeprom32.writeByte(0,'a');
  // bt.println(char(eeprom32.readByte(0)));
@@ -253,12 +255,14 @@ void loop() {
       configuration.Display = DISPLAY_1;
       EEPROM_writeAnything(0, configuration);
       break;
+      
      case DISPLAY_2:
       Display = DISPLAY_2;
       lcd.clear(BLACK);
       configuration.Display = DISPLAY_2;
       EEPROM_writeAnything(0, configuration);
       break;
+      
      case DISPLAY_3:
       Display = DISPLAY_3;
       configuration.Display = DISPLAY_3;
@@ -351,11 +355,11 @@ void loop() {
      if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);  
    }
     
-  if(currentMillis - gps_out_pi > 500) {  // Каждые 5 минут
+  if(currentMillis - gps_out_pi > 250) { 
    gps_out_pi = currentMillis;  
    if (GPS_OUT) {
    if (GPS_OUT_LED) {  digitalWrite(CPU_LED,HIGH); GPS_OUT_LED = false; } 
-   else { digitalWrite(CPU_LED,LOW); GPS_OUT_LED = false; }
+   else { digitalWrite(CPU_LED,LOW); GPS_OUT_LED = true; }
    }
   }
 }
@@ -989,18 +993,24 @@ void ShowBMP085(boolean s) {
   lcd.setChar('2', 122,112+6, WHITE,BLACK);
   lcd.setChar('4', 122,122+6, WHITE,BLACK);
   
-  // lcd.setPixel(WHITE, 106,15);
-
-  // for(int y=15;y<130;y++) {
-  // int x=map(random(0,6),0,6,106,0);
-  //  lcd.setLine(x,y,106,y, WHITE);
-  // }
-
   int x = map((Pressure/133.3),600,900,106,0);
-  lcd.setLine(x,y_pres,106,y_pres, WHITE);
-  y_pres++; if (y_pres > 130) y_pres=15;
- 
   
+  lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
+  
+  if (bar_color)
+  lcd.setLine(x,y_pres,106,y_pres, WHITE); // Нарисовать данные
+  else
+  lcd.setLine(x,y_pres,106,y_pres, RED); // Нарисовать данные
+  
+  y_pres++; if (y_pres > 130) { y_pres = 15; if (bar_color) bar_color = false; else bar_color=true;  }
+ 
+  //  0.0
+  //   --------------------------> Y
+  //   |
+  //   |
+  //   |
+  //   v
+  //   X
   }  
   
 }
