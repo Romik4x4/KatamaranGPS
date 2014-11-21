@@ -37,6 +37,8 @@ struct config_t
   
 } configuration;
 
+// --------------------------------------------------------------------
+
 struct gps_t   // Координаты для GPS Трекера sizeof == 14 Byte 
 {
   int years;
@@ -44,6 +46,16 @@ struct gps_t   // Координаты для GPS Трекера sizeof == 14 By
   double lats,lngs;
   
 } gps_tracker;
+
+// ----------------------- BMP085 ---------------------------------
+
+struct bmp085_t // Данные о давлении sizeof == 7 byte
+{    
+    long Press;
+    byte hours,minutes;
+    byte color;
+  
+} bmp085_data;
 
 //---------------- IR Кнопки --------------------------
 
@@ -211,7 +223,33 @@ void setup() {
  // eeprom256.writeByte(0,'b');
  // bt.println(char(eeprom256.readByte(0)));
   
-    
+ 
+ 
+  bmp085_data.Press = 770.22;
+  bmp085_data.hours = 10;
+  bmp085_data.minutes = 30;
+  bmp085_data.color = 0;
+  
+  bt.println(sizeof(bmp085_data));
+  
+     unsigned long pp = 0;
+     const byte* p = (const byte*)(const void*)&bmp085_data;
+     for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
+     eeprom32.writeByte(pp++, *p++);
+     
+     bt.println(pp);
+     int aaa = 0;
+     
+   byte* ppp = (byte*)(void*)&bmp085_data; 
+   for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
+    *ppp++ = eeprom32.readByte(aaa++);
+
+
+  bt.println(bmp085_data.Press);
+  bt.println(bmp085_data.hours);
+  bt.println(bmp085_data.minutes);
+  bt.println(bmp085_data.color);
+   
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -392,7 +430,7 @@ void Save_GPS_Pos( void ) {
      eeprom256.writeByte(GPS_EEPROM_POS++, *p++);
         
      if ((GPS_EEPROM_POS+1+14) > EE24LC256MAXBYTES ) {
-      GPS_EEPROM_POS = 0;
+      configuration.Last_GPS_Pos = 0;
      } else {
       configuration.Last_GPS_Pos = GPS_EEPROM_POS + 1; // Следующая ячейка памяти в EEPROM
      }
@@ -407,7 +445,7 @@ void GPS_Track_Output( void ) {
   
   unsigned long address;
   
-  for(address=0;address < (30*15) ;address+=15) {
+  for(address=0;address < (30*14) ;address+=15) {
   
    byte* pp = (byte*)(void*)&gps_tracker; 
    for (unsigned int i = 0; i < sizeof(gps_tracker); i++)
@@ -993,7 +1031,7 @@ void ShowBMP085(boolean s) {
   lcd.setChar('2', 122,112+6, WHITE,BLACK);
   lcd.setChar('4', 122,122+6, WHITE,BLACK);
   
-  int x = map((Pressure/133.3),600,900,106,0);
+  int x = map((Pressure/133.3),700,790,106,0);
   
   lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
   
@@ -1011,6 +1049,7 @@ void ShowBMP085(boolean s) {
   //   |
   //   v
   //   X
+  
   }  
   
 }
