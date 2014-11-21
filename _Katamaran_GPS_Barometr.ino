@@ -19,13 +19,10 @@
 #include <Sunrise.h>
 #include <I2C_eeprom.h>
 
-
 // ------------------------------
 
 int y_volts = 15;
 int y_pres = 15;
-
-#define DEBUG 1
 
 #define UTC 3 //  UTC+3 = Moscow
 
@@ -33,10 +30,11 @@ struct config_t
 {    
     unsigned long Display;
     int Contrast;
+    unsigned long Last_GPS_Pos; // Последняя точка записи в EEPROM GPS Координат
   
 } configuration;
 
-struct gps_t   // Координаты для GPS Трекера sizeof == 14 Byte
+struct gps_t   // Координаты для GPS Трекера sizeof == 14 Byte 
 {
   int years;
   byte days,months,hours,minutes;
@@ -52,9 +50,9 @@ struct gps_t   // Координаты для GPS Трекера sizeof == 14 By
 #define DISPLAY_4 16716015 // 4 GPS Info
 #define DISPLAY_5 16726215 // 5 SunRise and SunSet
 #define DISPLAY_6 16734885 // 6 Voltmetr
-#define DISPLAY_7 16728765 // 7
-#define DISPLAY_8 16730805 // 8
-#define DISPLAY_9 16732845 // 9  GPS Output if BT is connected
+#define DISPLAY_7 16728765 // 7 GPS_Track Output
+#define DISPLAY_8 16730805 // 8 Barometer
+#define DISPLAY_9 16732845 // 9 GPS Output if BT is connected
 
 // Для другово пульта кнопки
 
@@ -72,6 +70,8 @@ struct gps_t   // Координаты для GPS Трекера sizeof == 14 By
 #define CONTRAST_DW 16754775 // -
 
 #define DISPLAY_NONE 0
+
+#define DEBUG 0
 
 // BOX G218C Chip-Dip
 
@@ -151,13 +151,19 @@ int weekDay,monthDay,month,year;
 unsigned long Display;
 
 unsigned long currentMillis;
-unsigned long PreviousInterval = 0;     // Для всех внутренних функций
-unsigned long loopPreviousInterval = 0; // Для управления GPS SetDateTime
+unsigned long PreviousInterval = 0;      // Для всех внутренних функций
+unsigned long loopPreviousInterval = 0;  // Для управления GPS SetDateTime
 unsigned long voltPreviousInterval = 0;  // Для вольтметра
+unsigned long gpsTrackPI = 0;            // Каждые пять минут сохраняем GPS Position
+unsigned long gps_out_pi = 0;            // Если GPS_OUT мигаем светодиодом на MCU
+
+boolean GPS_OUT_LED = false;
 
 int Contrast = 44;
 
 boolean start = true; // Если была перегрузка.
+
+// --------------------------------- SETUP ---------------------------------
 
 void setup() {
   
@@ -166,9 +172,9 @@ void setup() {
     
   EEPROM_readAnything(0, configuration); // Чтения конфигурации
   
-  Display = configuration.Display;   // Default DISPLAY_1;
-  Contrast = configuration.Contrast; // Default 44
-    
+  Display = configuration.Display;             // Default DISPLAY_1;
+  Contrast = configuration.Contrast;           // Default 44
+  
   set_1HZ_DS1307(true); // Включаем синий светодиод на DS1307
   
   // delay(1000); // For BMP085 - Зачем не понятно  
@@ -203,35 +209,6 @@ void setup() {
  // eeprom256.writeByte(0,'b');
  // bt.println(char(eeprom256.readByte(0)));
   
-  gps_tracker.lats = 37.123456;
-  gps_tracker.lngs = 55.654321;
-  
-  gps_tracker.days = 10;
-  gps_tracker.months = 11;
-  gps_tracker.years = 2014;
-  gps_tracker.hours = 11;
-  gps_tracker.minutes = 12;
-  
-  
-    unsigned int ee = 0;  
-    const byte* p = (const byte*)(const void*)&gps_tracker;
-    for (unsigned int i = 0; i < sizeof(gps_tracker); i++) 
-     eeprom256.writeByte(ee++, *p++);
-    
-  
-  gps_tracker.lats = 0.0;
-  gps_tracker.lngs = 0.0;
-  
-  
-   ee = 0;
-   
-   byte* pp = (byte*)(void*)&gps_tracker; 
-   for (unsigned int i = 0; i < sizeof(gps_tracker); i++)
-    *pp++ = eeprom256.readByte(ee++);
-
-    bt.println(gps_tracker.years,6);
-    bt.println(ee);
-    
     
 }
 
@@ -255,10 +232,7 @@ void loop() {
   
    if (irrecv.decode(&results)) {
     
-     if (DEBUG) bt.println(results.value);
-     
-     digitalWrite(CPU_LED,HIGH);
-     digitalWrite(CPU_LED,LOW);
+     if (DEBUG) bt.println(results.value);  
      
     switch (results.value) {      
      case DIS_1: results.value = DISPLAY_1; break;
@@ -316,6 +290,10 @@ void loop() {
       lcd.clear(BLACK);
       ShowDataVolt(true);
       break;
+
+     case DISPLAY_7:
+      GPS_Track_Output();
+      break;
       
      case DISPLAY_8:
       Display = DISPLAY_8;
@@ -353,8 +331,13 @@ void loop() {
 
 
  // --------------------------- GPS -----------------------
+  
+  if(currentMillis - gpsTrackPI > 300000) { // Каждые 5 минут
+   gpsTrackPI = currentMillis;  
+   Save_GPS_Pos();  // Save GPS Position
+  }
  
-  if(currentMillis - loopPreviousInterval > 5123) { 
+  if(currentMillis - loopPreviousInterval > 300000) {  // Каждые 5 минут
    loopPreviousInterval = currentMillis;  
    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid())
      set_1HZ_DS1307(false);
@@ -367,9 +350,79 @@ void loop() {
      gps.encode(nmea);
      if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);  
    }
+    
+  if(currentMillis - gps_out_pi > 500) {  // Каждые 5 минут
+   gps_out_pi = currentMillis;  
+   if (GPS_OUT) {
+   if (GPS_OUT_LED) {  digitalWrite(CPU_LED,HIGH); GPS_OUT_LED = false; } 
+   else { digitalWrite(CPU_LED,LOW); GPS_OUT_LED = false; }
+   }
+  }
 }
 
+// --------------------------- GPS SAVE POS FOR GPS TRACKER --------------------------------------
 
+void Save_GPS_Pos( void ) {
+
+  unsigned long GPS_EEPROM_POS;
+
+  EEPROM_readAnything(0, configuration); // Чтения конфигурации
+  
+  GPS_EEPROM_POS = configuration.Last_GPS_Pos;  
+
+  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+
+   gps_tracker.lats = gps.location.lat();
+   gps_tracker.lngs = gps.location.lng();
+  
+   gps_tracker.days    = gps.date.day();
+   gps_tracker.months  = gps.date.month();
+   gps_tracker.years   = gps.date.year();
+   gps_tracker.minutes = gps.time.minute();
+   gps_tracker.hours   = gps.time.hour() + UTC;
+  
+   if (gps_tracker.hours > 23)  gps_tracker.hours = gps_tracker.hours - 24;
+          
+     const byte* p = (const byte*)(const void*)&gps_tracker;
+     for (unsigned int i = 0; i < sizeof(gps_tracker); i++) 
+     eeprom256.writeByte(GPS_EEPROM_POS++, *p++);
+        
+     if ((GPS_EEPROM_POS+1+14) > EE24LC256MAXBYTES ) {
+      GPS_EEPROM_POS = 0;
+     } else {
+      configuration.Last_GPS_Pos = GPS_EEPROM_POS + 1; // Следующая ячейка памяти в EEPROM
+     }
+     
+     EEPROM_writeAnything(0, configuration);
+
+   } // if GPS is OK ONLY
+}
+// --------------------------- GPS Track Output --------------------------------------------------
+
+void GPS_Track_Output( void ) {
+  
+  unsigned long address;
+  
+  for(address=0;address < (30*15) ;address+=15) {
+  
+   byte* pp = (byte*)(void*)&gps_tracker; 
+   for (unsigned int i = 0; i < sizeof(gps_tracker); i++)
+    *pp++ = eeprom256.readByte(address++);
+  
+    if (digitalRead(BT_CONNECT) == HIGH) {      
+     bt.print(gps_tracker.days);    bt.print(',');
+     bt.print(gps_tracker.months);  bt.print(',');
+     bt.print(gps_tracker.years);   bt.print(',');     
+     bt.print(gps_tracker.hours);   bt.print(',');     
+     bt.print(gps_tracker.minutes); bt.print(',');
+     bt.print(gps_tracker.lats,6);  bt.print(',');
+     bt.print(gps_tracker.lngs,6);  
+     bt.println();
+    }
+    
+   }  
+  
+}
 // --------------------------- Мигает светодиод 1 HZ от RTC DS1307 -------------------------------
 
 void set_1HZ_DS1307( boolean mode) {
