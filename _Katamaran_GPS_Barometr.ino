@@ -22,7 +22,9 @@
 // ------------------------------
 
 int y_volts = 15;
-int y_pres = 15;
+
+int y_pres = 15; // Позиция вывода а также позиция для EEPROM
+
 boolean bar_color = true;
 
 // -------------------------------
@@ -169,6 +171,8 @@ unsigned long currentMillis;
 unsigned long PreviousInterval = 0;      // Для всех внутренних функций
 unsigned long loopPreviousInterval = 0;  // Для управления GPS SetDateTime
 unsigned long voltPreviousInterval = 0;  // Для вольтметра
+unsigned long barPreviousInterval = 0;   // Для барометра
+
 unsigned long gpsTrackPI = 0;            // Каждые пять минут сохраняем GPS Position
 unsigned long gps_out_pi = 0;            // Если GPS_OUT мигаем светодиодом на MCU
 
@@ -191,6 +195,8 @@ void setup() {
   Contrast = configuration.Contrast;           // Default 44
   
   set_1HZ_DS1307(true); // Включаем синий светодиод на DS1307
+  
+  erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
   
   // delay(1000); // For BMP085 - Зачем не понятно  
   // setDateTime(); // Установка начального времени
@@ -224,32 +230,6 @@ void setup() {
  // bt.println(char(eeprom256.readByte(0)));
   
  
- 
-  bmp085_data.Press = 770.22;
-  bmp085_data.hours = 10;
-  bmp085_data.minutes = 30;
-  bmp085_data.color = 0;
-  
-  bt.println(sizeof(bmp085_data));
-  
-     unsigned long pp = 0;
-     const byte* p = (const byte*)(const void*)&bmp085_data;
-     for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
-     eeprom32.writeByte(pp++, *p++);
-     
-     bt.println(pp);
-     int aaa = 0;
-     
-   byte* ppp = (byte*)(void*)&bmp085_data; 
-   for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
-    *ppp++ = eeprom32.readByte(aaa++);
-
-
-  bt.println(bmp085_data.Press);
-  bt.println(bmp085_data.hours);
-  bt.println(bmp085_data.minutes);
-  bt.println(bmp085_data.color);
-   
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -335,6 +315,7 @@ void loop() {
 
      case DISPLAY_7:
       GPS_Track_Output();
+      Read_Data_BMP_EEPROM();
       break;
       
      case DISPLAY_8:
@@ -377,6 +358,7 @@ void loop() {
   if(currentMillis - gpsTrackPI > 300000) { // Каждые 5 минут
    gpsTrackPI = currentMillis;  
    Save_GPS_Pos();  // Save GPS Position
+   Save_Bar_Data(); // Save BMP_085 Data
   }
  
   if(currentMillis - loopPreviousInterval > 300000) {  // Каждые 5 минут
@@ -408,11 +390,11 @@ void Save_GPS_Pos( void ) {
 
   unsigned long GPS_EEPROM_POS;
 
+ if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+  
   EEPROM_readAnything(0, configuration); // Чтения конфигурации
   
   GPS_EEPROM_POS = configuration.Last_GPS_Pos;  
-
-  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
 
    gps_tracker.lats = gps.location.lat();
    gps_tracker.lngs = gps.location.lng();
@@ -445,13 +427,14 @@ void GPS_Track_Output( void ) {
   
   unsigned long address;
   
+  if (digitalRead(BT_CONNECT) == HIGH) {      
+  
   for(address=0;address < (30*14) ;address+=15) {
   
    byte* pp = (byte*)(void*)&gps_tracker; 
    for (unsigned int i = 0; i < sizeof(gps_tracker); i++)
     *pp++ = eeprom256.readByte(address++);
   
-    if (digitalRead(BT_CONNECT) == HIGH) {      
      bt.print(gps_tracker.days);    bt.print(',');
      bt.print(gps_tracker.months);  bt.print(',');
      bt.print(gps_tracker.years);   bt.print(',');     
@@ -465,6 +448,75 @@ void GPS_Track_Output( void ) {
    }  
   
 }
+
+
+// --------------------------- Output BMP_085 DATA from EEPROM -----------------------------------
+
+void Read_Data_BMP_EEPROM( void ) {
+  
+   for(int address=0;address<(115*7);address+=8) { 
+     
+   byte* pp = (byte*)(void*)&bmp085_data; 
+   for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
+    *pp++ = eeprom32.readByte(address++);
+
+   bt.print(bmp085_data.Press);   bt.print(",");
+   bt.print(bmp085_data.hours);   bt.print(",");
+   bt.print(bmp085_data.minutes); bt.print(",");
+   bt.println(bmp085_data.color);
+    
+   }
+   
+}
+// --------------------------- Save Barometer Data to EEPROM -------------------------------------
+
+void Save_Bar_Data( void ) {
+  
+  // Каждые пять минут пишем в EEPROM
+ 
+ dps.getPressure(&Pressure);  // Get data from BMP085
+   
+ unsigned long address;
+ 
+ if (y_pres == 15) address = 0;
+ if (y_pres > 15) {
+  address = (y_pres-15)*7+1; // Вычисление адреса ячейки памяти для EEPROM
+ }
+ 
+  bmp085_data.Press = Pressure;
+  bmp085_data.hours = 22;    // For feature
+  bmp085_data.minutes = 22;  // For feature
+  
+  if (bar_color)  bmp085_data.color = 1;
+  if (!bar_color) bmp085_data.color = 0;
+  
+   const byte* p = (const byte*)(const void*)&bmp085_data;
+   for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
+    eeprom32.writeByte(address++,*p++);
+    
+   y_pres++; 
+   
+   if (y_pres > 130) { y_pres = 15; if (bar_color) bar_color = false; else bar_color=true;  }  
+
+}
+
+// --------------------------- Erase DATA EEPROM 32 for BMP085 -----------------------------------
+
+void erase_eeprom_bmp085( void ) {
+  
+  bmp085_data.Press = 0.0;
+  bmp085_data.hours = 0;
+  bmp085_data.minutes = 0;
+  bmp085_data.color = 0;
+  
+  for(int address=0;address<(115*7);address+=8) {  
+   const byte* p = (const byte*)(const void*)&bmp085_data;
+   for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
+    eeprom32.writeByte(address++, *p++);
+  }
+  
+}
+
 // --------------------------- Мигает светодиод 1 HZ от RTC DS1307 -------------------------------
 
 void set_1HZ_DS1307( boolean mode) {
@@ -941,7 +993,7 @@ void ShowDataSun( boolean s) {
 
 void ShowDataVolt(boolean s) {
 
-  if ((currentMillis - voltPreviousInterval > 30000) || (s == true) ) {  // 900 000
+  if ((currentMillis - voltPreviousInterval > 300000) || (s == true) ) {  // 300000 = 5 Минут
    voltPreviousInterval = currentMillis;  
   
   // x,y x,y
@@ -994,8 +1046,8 @@ void ShowDataVolt(boolean s) {
 
 void ShowBMP085(boolean s) {
 
-  if ((currentMillis - PreviousInterval > 30000) || (s == true) ) {  // 900 000
-   PreviousInterval = currentMillis;  
+  if ((currentMillis - barPreviousInterval > 300) || (s == true) ) {  // 300000 == 5 Минут
+   barPreviousInterval = currentMillis;      
   
   dps.getPressure(&Pressure);  // Get data from BMP085
 
@@ -1040,7 +1092,7 @@ void ShowBMP085(boolean s) {
   else
   lcd.setLine(x,y_pres,106,y_pres, RED); // Нарисовать данные
   
-  y_pres++; if (y_pres > 130) { y_pres = 15; if (bar_color) bar_color = false; else bar_color=true;  }
+  if (bar_color) bar_color = false; else bar_color=true; 
  
   //  0.0
   //   --------------------------> Y
