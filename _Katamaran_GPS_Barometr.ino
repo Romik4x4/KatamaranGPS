@@ -36,10 +36,13 @@ struct config_t
   
 } configuration;
 
-struct config_a
+struct gps_t   // Координаты для GPS Трекера sizeof == 14 Byte
 {
-  long bar;
-} xx;
+  int years;
+  byte days,months,hours,minutes;
+  double lats,lngs;
+  
+} gps_tracker;
 
 //---------------- IR Кнопки --------------------------
 
@@ -166,7 +169,7 @@ void setup() {
   Display = configuration.Display;   // Default DISPLAY_1;
   Contrast = configuration.Contrast; // Default 44
     
-  set_1HZ_DS1307(); // Включаем синий светодиод на DS1307
+  set_1HZ_DS1307(true); // Включаем синий светодиод на DS1307
   
   // delay(1000); // For BMP085 - Зачем не понятно  
   // setDateTime(); // Установка начального времени
@@ -200,21 +203,35 @@ void setup() {
  // eeprom256.writeByte(0,'b');
  // bt.println(char(eeprom256.readByte(0)));
   
-  xx.bar = 770;
+  gps_tracker.lats = 37.123456;
+  gps_tracker.lngs = 55.654321;
+  
+  gps_tracker.days = 10;
+  gps_tracker.months = 11;
+  gps_tracker.years = 2014;
+  gps_tracker.hours = 11;
+  gps_tracker.minutes = 12;
+  
   
     unsigned int ee = 0;  
-    const byte* p = (const byte*)(const void*)&xx;
-    for (unsigned int i = 0; i < sizeof(xx); i++) 
+    const byte* p = (const byte*)(const void*)&gps_tracker;
+    for (unsigned int i = 0; i < sizeof(gps_tracker); i++) 
      eeprom256.writeByte(ee++, *p++);
+    
   
-  bt.println(ee);
+  gps_tracker.lats = 0.0;
+  gps_tracker.lngs = 0.0;
   
-  ee = 0;
-   byte* pp = (byte*)(void*)&xx; 
-   for (unsigned int i = 0; i < sizeof(xx); i++)
+  
+   ee = 0;
+   
+   byte* pp = (byte*)(void*)&gps_tracker; 
+   for (unsigned int i = 0; i < sizeof(gps_tracker); i++)
     *pp++ = eeprom256.readByte(ee++);
 
-    bt.println(xx.bar);
+    bt.println(gps_tracker.years,6);
+    bt.println(ee);
+    
     
 }
 
@@ -340,7 +357,9 @@ void loop() {
   if(currentMillis - loopPreviousInterval > 5123) { 
    loopPreviousInterval = currentMillis;  
    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid())
+     set_1HZ_DS1307(false);
      set_GPS_DateTime();
+     set_1HZ_DS1307(true);
   }
    
    if (Serial1.available()) {
@@ -353,18 +372,20 @@ void loop() {
 
 // --------------------------- Мигает светодиод 1 HZ от RTC DS1307 -------------------------------
 
-void set_1HZ_DS1307( void ) {
-    
+void set_1HZ_DS1307( boolean mode) {
+   
+ if (mode == false) {
   Wire.beginTransmission(0x68);
   Wire.write(0x00);
-  Wire.write(0x00);
+  Wire.write(0x00);              // Set Square Wave to OFF
   Wire.endTransmission();
-  
+} else { 
   Wire.beginTransmission(0x68);
   Wire.write(0x07);
   Wire.write(0x10);              // Set Square Wave to 1 Hz
   Wire.endTransmission();
-
+ }
+  
 }
 
 // -------------------------- Измерение входного напряжения от батарейки 3.7V Батарейка 4.x - Зарядка ----
