@@ -1,6 +1,3 @@
-#include <romikEEPROM.h>
-
-
 ///////////////////////////////////////
 // Arduino 1.0.6
 // ATMega 1284P (4K Bytes EEPROM)
