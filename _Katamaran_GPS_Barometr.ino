@@ -24,6 +24,8 @@ int y_pres = 15; // Позиция вывода а также позиция д�
 
 boolean bar_color = true;
 
+unsigned long BAR_EEPROM_POS = 0;
+
 // -------------------------------
 
 #define UTC 3 //  UTC+3 = Moscow
@@ -48,11 +50,10 @@ struct gps_t   // Координаты для GPS Трекера sizeof == 14 By
 
 // ----------------------- BMP085 ---------------------------------
 
-struct bmp085_t // Данные о давлении sizeof == 7 byte
+struct bmp085_t // Данные о давлении,высоте и температуре
 {    
-    long Press;
-    byte hours,minutes;
-    byte color;
+    double Press,Alt,Temp;
+    byte hours,minutes,color;
   
 } bmp085_data;
 
@@ -193,8 +194,6 @@ void setup() {
   
   set_1HZ_DS1307(true); // Включаем синий светодиод на DS1307
   
-  erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
-  
   // delay(1000); // For BMP085 - Зачем не понятно  
   // setDateTime(); // Установка начального времени
  
@@ -226,6 +225,7 @@ void setup() {
  // eeprom256.writeByte(0,'b');
  // bt.println(char(eeprom256.readByte(0)));
   
+  erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
  
 }
 
@@ -311,7 +311,7 @@ void loop() {
       break;
 
      case DISPLAY_7:
-      GPS_Track_Output();
+      // GPS_Track_Output();
       Read_Data_BMP_EEPROM();
       break;
       
@@ -352,13 +352,13 @@ void loop() {
 
  // --------------------------- GPS -----------------------
   
-  if(currentMillis - gpsTrackPI > 300000) { // Каждые 5 минут
+  if(currentMillis - gpsTrackPI > 3000) { // Каждые 5 минут
    gpsTrackPI = currentMillis;  
    Save_GPS_Pos();  // Save GPS Position
    Save_Bar_Data(); // Save BMP_085 Data
   }
  
-  if(currentMillis - loopPreviousInterval > 300000) {  // Каждые 5 минут
+  if(currentMillis - loopPreviousInterval > 300000) {  // Каждые 5 минут [300000]
    loopPreviousInterval = currentMillis;  
    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid())
      set_1HZ_DS1307(false);
@@ -451,16 +451,20 @@ void GPS_Track_Output( void ) {
 
 void Read_Data_BMP_EEPROM( void ) {
   
-   for(int address=0;address<(115*7);address+=8) { 
+   int address = 0;
+   
+   for(int count=0;count<10;count++) {
      
-   byte* pp = (byte*)(void*)&bmp085_data; 
-   for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
-    *pp++ = eeprom32.readByte(address++);
+    byte* pp = (byte*)(void*)&bmp085_data; 
+    for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
+     *pp++ = eeprom32.readByte(address++);
 
-   bt.print(bmp085_data.Press);   bt.print(",");
-   bt.print(bmp085_data.hours);   bt.print(",");
-   bt.print(bmp085_data.minutes); bt.print(",");
-   bt.println(bmp085_data.color);
+    bt.print(bmp085_data.Press);   bt.print(",");
+    bt.print(bmp085_data.Alt);     bt.print(",");
+    bt.print(bmp085_data.Temp);    bt.print(",");
+    bt.print(bmp085_data.hours);   bt.print(",");
+    bt.print(bmp085_data.minutes); bt.print(",");   
+    bt.println(bmp085_data.color);
     
    }
    
@@ -471,47 +475,71 @@ void Save_Bar_Data( void ) {
   
   // Каждые пять минут пишем в EEPROM
  
- dps.getPressure(&Pressure);  // Get data from BMP085
-   
- unsigned long address;
- 
- if (y_pres == 15) address = 0;
- if (y_pres > 15) {
-  address = (y_pres-15)*7+1; // Вычисление адреса ячейки памяти для EEPROM
+ if (BAR_EEPROM_POS < (EE24LC32MAXBYTES - sizeof(bmp085_data) +1)) {
+  erase_eeprom_bmp085();
+  BAR_EEPROM_POS = 0;
  }
- 
-  bmp085_data.Press = Pressure;
-  bmp085_data.hours = 22;    // For feature
-  bmp085_data.minutes = 22;  // For feature
+
+ dps.getPressure(&Pressure);        // Давление
+ dps.getAltitude(&Altitude);        // Высота 
+ dps.getTemperature(&Temperature);  // Температура
+   
+   Wire.beginTransmission(DS1307_ADDRESS);
+   Wire.write(0);
+   Wire.endTransmission();
+   Wire.requestFrom(DS1307_ADDRESS, 7);
+
+   byte seconds = bcdToDec(Wire.read());
+   byte minutes = bcdToDec(Wire.read());
+   byte hours = bcdToDec(Wire.read() & 0b111111); //24 hour time
   
-  if (bar_color)  bmp085_data.color = 1;
-  if (!bar_color) bmp085_data.color = 0;
+   byte weekDay = bcdToDec(Wire.read()); //0-6 -> sunday - Saturday
+   byte monthDay = bcdToDec(Wire.read());
+   byte month = bcdToDec(Wire.read());
+   byte year = bcdToDec(Wire.read());
+  
+  bmp085_data.Press = Pressure/133.3;
+  bmp085_data.Alt   = Altitude/100.0;
+  bmp085_data.Temp  = Temperature*0.1;
+  
+  bmp085_data.hours = hours;       
+  bmp085_data.minutes = minutes;     
+  bmp085_data.color = 1;
   
    const byte* p = (const byte*)(const void*)&bmp085_data;
    for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
-    eeprom32.writeByte(address++,*p++);
-    
-   y_pres++; 
+    eeprom32.writeByte(BAR_EEPROM_POS++,*p++);
    
-   if (y_pres > 130) { y_pres = 15; if (bar_color) bar_color = false; else bar_color=true;  }  
-
 }
 
 // --------------------------- Erase DATA EEPROM 32 for BMP085 -----------------------------------
 
 void erase_eeprom_bmp085( void ) {
   
+  BAR_EEPROM_POS = 0;
+   
   bmp085_data.Press = 0.0;
-  bmp085_data.hours = 0;
-  bmp085_data.minutes = 0;
-  bmp085_data.color = 0;
+  bmp085_data.Alt   = 0.0;
+  bmp085_data.Temp  = 0.0;
   
-  for(int address=0;address<(115*7);address+=8) {  
+  bmp085_data.hours   = 0;       
+  bmp085_data.minutes = 0;     
+  bmp085_data.color   = 0;
+
+  while(BAR_EEPROM_POS < (EE24LC32MAXBYTES - sizeof(bmp085_data) +1)) {
+   
    const byte* p = (const byte*)(const void*)&bmp085_data;
    for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
-    eeprom32.writeByte(address++, *p++);
+    eeprom32.writeByte(BAR_EEPROM_POS++,*p++);
+ 
   }
   
+  bt.println(BAR_EEPROM_POS);
+  bt.println(sizeof(bmp085_data));
+  bt.println(EE24LC32MAXBYTES);
+  
+  BAR_EEPROM_POS = 0;
+   
 }
 
 // --------------------------- Мигает светодиод 1 HZ от RTC DS1307 -------------------------------
