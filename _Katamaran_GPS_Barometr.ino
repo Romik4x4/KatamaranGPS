@@ -260,7 +260,7 @@ void setup() {
  // eeprom256.writeByte(0,'b');
  // bt.println(char(eeprom256.readByte(0)));
   
- erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
+  // erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
  
 }
 
@@ -474,7 +474,7 @@ void GPS_Track_Output( void ) {
   
   if (digitalRead(BT_CONNECT) == HIGH) {      
   
-  for(int count=0;count < 10;count++) {
+  for(int count=0;count < 200;count++) {
   
    byte* pp = (byte*)(void*)&gps_tracker; 
    for (unsigned int i = 0; i < sizeof(gps_tracker); i++)
@@ -582,7 +582,7 @@ void erase_eeprom_bmp085( void ) {
   while(BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
    
    const byte* p = (const byte*)(const void*)&bmp085_data;
-   for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
+   for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
     eeprom32.writeByte(BAR_EEPROM_POS++,*p++);
  
     sprintf(f,"%.3d",BAR_EEPROM_POS);
