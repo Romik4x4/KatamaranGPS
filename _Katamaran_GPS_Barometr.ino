@@ -311,7 +311,7 @@ void loop() {
       break;
 
      case DISPLAY_7:
-      // GPS_Track_Output();
+      GPS_Track_Output();
       Read_Data_BMP_EEPROM();
       break;
       
@@ -352,7 +352,7 @@ void loop() {
 
  // --------------------------- GPS -----------------------
   
-  if(currentMillis - gpsTrackPI > 3000) { // Каждые 5 минут
+  if(currentMillis - gpsTrackPI > 300000) { // Каждые 5 минут
    gpsTrackPI = currentMillis;  
    Save_GPS_Pos();  // Save GPS Position
    Save_Bar_Data(); // Save BMP_085 Data
@@ -408,10 +408,11 @@ void Save_GPS_Pos( void ) {
      for (unsigned int i = 0; i < sizeof(gps_tracker); i++) 
      eeprom256.writeByte(GPS_EEPROM_POS++, *p++);
         
-     if ((GPS_EEPROM_POS+1+14) > EE24LC256MAXBYTES ) {
+     if (GPS_EEPROM_POS > (EE24LC256MAXBYTES - (sizeof(gps_tracker)+1) ) ) {
       configuration.Last_GPS_Pos = 0;
+      GPS_EEPROM_POS = 0;
      } else {
-      configuration.Last_GPS_Pos = GPS_EEPROM_POS + 1; // Следующая ячейка памяти в EEPROM
+      configuration.Last_GPS_Pos = GPS_EEPROM_POS; // Следующая ячейка памяти в EEPROM
      }
      
      EEPROM_writeAnything(0, configuration);
@@ -422,11 +423,11 @@ void Save_GPS_Pos( void ) {
 
 void GPS_Track_Output( void ) {
   
-  unsigned long address;
+  unsigned long address = 0;
   
   if (digitalRead(BT_CONNECT) == HIGH) {      
   
-  for(address=0;address < (30*14) ;address+=15) {
+  for(int count=0;count < 10;count++) {
   
    byte* pp = (byte*)(void*)&gps_tracker; 
    for (unsigned int i = 0; i < sizeof(gps_tracker); i++)
@@ -475,7 +476,7 @@ void Save_Bar_Data( void ) {
   
   // Каждые пять минут пишем в EEPROM
  
- if (BAR_EEPROM_POS < (EE24LC32MAXBYTES - sizeof(bmp085_data) +1)) {
+ if (BAR_EEPROM_POS >  (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1) ) ) {
   erase_eeprom_bmp085();
   BAR_EEPROM_POS = 0;
  }
@@ -491,9 +492,9 @@ void Save_Bar_Data( void ) {
 
    byte seconds = bcdToDec(Wire.read());
    byte minutes = bcdToDec(Wire.read());
-   byte hours = bcdToDec(Wire.read() & 0b111111); //24 hour time
+   byte hours = bcdToDec(Wire.read() & 0b111111); // 24 hour time
   
-   byte weekDay = bcdToDec(Wire.read()); //0-6 -> sunday - Saturday
+   byte weekDay = bcdToDec(Wire.read()); // 0-6 -> sunday - Saturday
    byte monthDay = bcdToDec(Wire.read());
    byte month = bcdToDec(Wire.read());
    byte year = bcdToDec(Wire.read());
@@ -516,6 +517,8 @@ void Save_Bar_Data( void ) {
 
 void erase_eeprom_bmp085( void ) {
   
+  char f[10];
+  
   BAR_EEPROM_POS = 0;
    
   bmp085_data.Press = 0.0;
@@ -526,17 +529,19 @@ void erase_eeprom_bmp085( void ) {
   bmp085_data.minutes = 0;     
   bmp085_data.color   = 0;
 
-  while(BAR_EEPROM_POS < (EE24LC32MAXBYTES - sizeof(bmp085_data) +1)) {
+  while(BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
    
    const byte* p = (const byte*)(const void*)&bmp085_data;
    for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
     eeprom32.writeByte(BAR_EEPROM_POS++,*p++);
  
+    sprintf(f,"%.3d",BAR_EEPROM_POS);
+    lcd.setStr(f,0,0,YELLOW,BLACK);
   }
   
-  bt.println(BAR_EEPROM_POS);
-  bt.println(sizeof(bmp085_data));
-  bt.println(EE24LC32MAXBYTES);
+  // bt.println(BAR_EEPROM_POS);
+  // bt.println(sizeof(bmp085_data));
+  // bt.println(EE24LC32MAXBYTES);
   
   BAR_EEPROM_POS = 0;
    
