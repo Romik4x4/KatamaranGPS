@@ -20,6 +20,8 @@
 
 int y_volts = 15;
 
+unsigned long code = 0;  // Keyboard for Setup
+
 int y_pres = 15; // Позиция вывода а также позиция для EEPROM
 
 boolean bar_color = true;
@@ -69,6 +71,13 @@ struct bmp085_t // Данные о давлении,высоте и темпер
 #define DISPLAY_8 16730805 // 8 Barometer
 #define DISPLAY_9 16732845 // 9 GPS Output if BT is connected
 
+#define DOWN   1
+#define UP     2
+#define LEFT   3
+#define RIGHT  4
+#define ENTER  5
+#define ONOFF  6
+
 // Для другово пульта кнопки
 
 #define DIS_1 14614783
@@ -81,6 +90,13 @@ struct bmp085_t // Данные о давлении,высоте и темпер
 #define DIS_8 14671903
 #define DIS_9 14618863
 
+#define DIS_ONOFF 14627023
+#define DIS_UP    14616823
+#define DIS_DOWN  14649463
+#define DIS_LEFT  14633143
+#define DIS_RIGHT 14665783
+#define DIS_ENTER 14643343
+
 #define DI_1 16582903
 #define DI_2 16615543
 #define DI_3 16599223
@@ -91,12 +107,19 @@ struct bmp085_t // Данные о давлении,высоте и темпер
 #define DI_8 16619623
 #define DI_9 16603303
 
+#define DI_ONOFF   16580863
+#define DIS_UP     16613503 // VOL+
+#define DIS_DOWN   16617583 // VOL-
+#define DIS_LEFT   16605343 // >>|| Reverse Right
+#define DIS_RIGHT  16589023 // ||<< Reverse Left
+#define DIS_ENTER  16621663 // >|| Play
+
 #define CONTRAST_UP 16769055 // +
 #define CONTRAST_DW 16754775 // -
 
 #define DISPLAY_NONE 0
 
-#define DEBUG 0
+#define DEBUG 1
 
 // BOX G218C Chip-Dip
 
@@ -235,7 +258,7 @@ void setup() {
  // eeprom256.writeByte(0,'b');
  // bt.println(char(eeprom256.readByte(0)));
   
-  erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
+ // erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
  
 }
 
@@ -248,7 +271,7 @@ void loop() {
    currentMillis = millis();
 
    if (Display == DISPLAY_1) Analog_Time_Clock();
-   if (Display == DISPLAY_2) Draw();
+   if (Display == DISPLAY_2) Setup();
    if (Display == DISPLAY_3) ShowData(start);
    if (Display == DISPLAY_4) ShowDataGPS(start);
    if (Display == DISPLAY_5) ShowDataSun(start);
@@ -557,7 +580,7 @@ void erase_eeprom_bmp085( void ) {
    for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
     eeprom32.writeByte(BAR_EEPROM_POS++,*p++);
  
-    sprintf(f,"%.3d",BAR_EEPROM_POS));
+    sprintf(f,"%.3d",BAR_EEPROM_POS);
     lcd.setStr(f,2,2,YELLOW,BLACK);
   }
   
@@ -882,23 +905,18 @@ void ShowData(boolean s) {
   }
 }
 
-void Draw( void ) {
+void Setup( void ) {
   
- int segmentsRed[1] = {ENE};
- lcd.setArc(60,50,40,segmentsRed,sizeof(segmentsRed),5,RED);
- int segmentsYellow[1] = {NNE};
- lcd.setArc(60,50,40,segmentsYellow,sizeof(segmentsYellow),10,YELLOW);
+  char f[50];
+
+  if (code == 0) {
+   strcpy(f,"1. Set Time");
+   lcd.setStr(f,1,1,BLACK,WHITE);
+   strcpy(f,"2. Set Date");
+   lcd.setStr(f,15,1,WHITE,BLACK);
+  }
   
- int segments[4] = {WNW,NNW,NNE,ENE};
-  
- lcd.setArc(60,50,40,segments,sizeof(segments),FILL,YELLOW);
- delay(100);
- lcd.setArc(60,50,40,segments,sizeof(segments),FILL,BLACK);
- delay(100);
-   
- lcd.setCircle(90,100,20,PINK,FILL);
- lcd.setCircle(90,35,25,CYAN,3);
- Display = DISPLAY_NONE;
+  Display = DISPLAY_NONE;
 
 }
 
