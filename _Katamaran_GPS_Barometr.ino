@@ -397,7 +397,7 @@ void loop() {
 
  // --------------------------- GPS -----------------------
   
-  if(currentMillis - gpsTrackPI > 300000) { // Каждые 5 минут
+  if(currentMillis - gpsTrackPI > 3000) { // Каждые 5 минут
    gpsTrackPI = currentMillis;  
    Save_GPS_Pos();  // Save GPS Position
    Save_Bar_Data(); // Save BMP_085 Data
