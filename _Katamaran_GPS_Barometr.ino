@@ -16,6 +16,8 @@
 #include <Sunrise.h>
 #include <I2C_eeprom.h>
 
+#define FIVE_MINUT 300000
+
 // ------------------------------
 
 int y_volts = 15;
@@ -258,7 +260,7 @@ void setup() {
  // eeprom256.writeByte(0,'b');
  // bt.println(char(eeprom256.readByte(0)));
   
- // erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
+ erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
  
 }
 
@@ -397,7 +399,7 @@ void loop() {
 
  // --------------------------- GPS -----------------------
   
-  if(currentMillis - gpsTrackPI > 3000) { // Каждые 5 минут
+  if(currentMillis - gpsTrackPI > FIVE_MINUT) { // Каждые 5 минут
    gpsTrackPI = currentMillis;  
    Save_GPS_Pos();  // Save GPS Position
    Save_Bar_Data(); // Save BMP_085 Data
@@ -521,11 +523,6 @@ void Save_Bar_Data( void ) {
   
   // Каждые пять минут пишем в EEPROM
  
- if (BAR_EEPROM_POS >  (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1) ) ) {
-  erase_eeprom_bmp085();
-  BAR_EEPROM_POS = 0;
- }
-
  dps.getPressure(&Pressure);        // Давление
  dps.getAltitude(&Altitude);        // Высота 
  dps.getTemperature(&Temperature);  // Температура
@@ -550,11 +547,19 @@ void Save_Bar_Data( void ) {
   
   bmp085_data.hours = hours;       
   bmp085_data.minutes = minutes;     
-  bmp085_data.color = 1;
+
+  if (BAR_EEPROM_POS > 130) bmp085_data.color = 1; else bmp085_data.color = 0;
   
    const byte* p = (const byte*)(const void*)&bmp085_data;
    for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
     eeprom32.writeByte(BAR_EEPROM_POS++,*p++);
+    
+  if (BAR_EEPROM_POS >  (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1) ) ) {
+   erase_eeprom_bmp085();
+   BAR_EEPROM_POS = 0;
+   bmp085_data.color = 0;
+  }
+  
    
 }
 
@@ -589,6 +594,7 @@ void erase_eeprom_bmp085( void ) {
   // bt.println(EE24LC32MAXBYTES);
   
   BAR_EEPROM_POS = 0;
+  lcd.clear(BLACK);
    
 }
 
@@ -1153,16 +1159,25 @@ void ShowBMP085(boolean s) {
   lcd.setChar('2', 122,112+6, WHITE,BLACK);
   lcd.setChar('4', 122,122+6, WHITE,BLACK);
   
-  int x = map((Pressure/133.3),700,790,106,0);
+  unsigned int v_BAR_EEPROM_POS = 0;
+  int address = 0;
+    
+  while(v_BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
+      
+    byte* pp = (byte*)(void*)&bmp085_data; 
+    for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
+     *pp++ = eeprom32.readByte(address++);
+     
+    if (bmp085_data.hours == 0 && minutes == 0 ) break;
+    
+    int x = map(bmp085_data.Press,700,790,106,0);   
+    lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
   
-  lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
-  
-  if (bar_color)
-  lcd.setLine(x,y_pres,106,y_pres, WHITE); // Нарисовать данные
-  else
-  lcd.setLine(x,y_pres,106,y_pres, RED); // Нарисовать данные
-  
-  if (bar_color) bar_color = false; else bar_color=true; 
+    if (bar_color) lcd.setLine(x,y_pres,106,y_pres, WHITE); // Нарисовать данные    
+    else lcd.setLine(x,y_pres,106,y_pres, RED); // Нарисовать данные
+    y_pres++; if (y_pres > 130) y_pres=15;
+    
+  }  
  
   //  0.0
   //   --------------------------> Y
