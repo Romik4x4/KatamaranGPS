@@ -81,6 +81,16 @@ struct bmp085_t // Данные о давлении,высоте и темпер
 #define DIS_8 14671903
 #define DIS_9 14618863
 
+#define DI_1 16582903
+#define DI_2 16615543
+#define DI_3 16599223
+#define DI_4 16591063
+#define DI_5 16623703
+#define DI_6 16607383
+#define DI_7 16586983
+#define DI_8 16619623
+#define DI_9 16603303
+
 #define CONTRAST_UP 16769055 // +
 #define CONTRAST_DW 16754775 // -
 
@@ -263,6 +273,18 @@ void loop() {
      case DIS_9: results.value = DISPLAY_9; break;
     }
      
+    switch (results.value) {      
+     case DI_1: results.value = DISPLAY_1; break;
+     case DI_2: results.value = DISPLAY_2; break;
+     case DI_3: results.value = DISPLAY_3; break;
+     case DI_4: results.value = DISPLAY_4; break;
+     case DI_5: results.value = DISPLAY_5; break;
+     case DI_6: results.value = DISPLAY_6; break;
+     case DI_7: results.value = DISPLAY_7; break;
+     case DI_8: results.value = DISPLAY_8; break;
+     case DI_9: results.value = DISPLAY_9; break;
+    }
+    
     switch (results.value) {      
      case DISPLAY_1:
       Display = DISPLAY_1;
@@ -535,8 +557,8 @@ void erase_eeprom_bmp085( void ) {
    for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
     eeprom32.writeByte(BAR_EEPROM_POS++,*p++);
  
-    sprintf(f,"%.3d",BAR_EEPROM_POS);
-    lcd.setStr(f,0,0,YELLOW,BLACK);
+    sprintf(f,"%.3d",BAR_EEPROM_POS));
+    lcd.setStr(f,2,2,YELLOW,BLACK);
   }
   
   // bt.println(BAR_EEPROM_POS);
