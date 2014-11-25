@@ -121,7 +121,7 @@ struct bmp085_t // Данные о давлении,высоте и темпер
 
 #define DISPLAY_NONE 0
 
-#define DEBUG 1
+#define DEBUG 0
 
 // BOX G218C Chip-Dip
 
@@ -359,7 +359,7 @@ void loop() {
 
      case DISPLAY_7:
       GPS_Track_Output();
-      Read_Data_BMP_EEPROM();
+      // Read_Data_BMP_EEPROM();
       break;
       
      case DISPLAY_8:
@@ -471,24 +471,32 @@ void Save_GPS_Pos( void ) {
 void GPS_Track_Output( void ) {
   
   unsigned long address = 0;
+  int count = 0;
   
   if (digitalRead(BT_CONNECT) == HIGH) {      
   
-  for(int count=0;count < 200;count++) {
-  
+  bt.println("--------------- START -----------------------");
+
+  while (address < (EE24LC256MAXBYTES - (sizeof(gps_tracker)+1) ) )  {
+    
    byte* pp = (byte*)(void*)&gps_tracker; 
    for (unsigned int i = 0; i < sizeof(gps_tracker); i++)
     *pp++ = eeprom256.readByte(address++);
   
-     bt.print(gps_tracker.days);    bt.print(',');
-     bt.print(gps_tracker.months);  bt.print(',');
-     bt.print(gps_tracker.years);   bt.print(',');     
-     bt.print(gps_tracker.hours);   bt.print(',');     
-     bt.print(gps_tracker.minutes); bt.print(',');
-     bt.print(gps_tracker.lats,6);  bt.print(',');
+     if (gps_tracker.days == 0 && gps_tracker.months == 0 && gps_tracker.years == 0) break;
+     
+     bt.print(count++);             bt.print(';');
+     bt.print(gps_tracker.days);    bt.print(';');
+     bt.print(gps_tracker.months);  bt.print(';');
+     bt.print(gps_tracker.years);   bt.print(';');     
+     bt.print(gps_tracker.hours);   bt.print(';');     
+     bt.print(gps_tracker.minutes); bt.print(';');
+     bt.print(gps_tracker.lats,6);  bt.print(';');
      bt.print(gps_tracker.lngs,6);  
      bt.println();
     }
+
+   bt.println("--------------- STOP -----------------------");
     
    }  
   
@@ -500,22 +508,30 @@ void GPS_Track_Output( void ) {
 void Read_Data_BMP_EEPROM( void ) {
   
    int address = 0;
+   int index = 0;
    
-   for(int count=0;count<10;count++) {
-     
+   bt.println("--------------- START -----------------------");
+    
+   while(address < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
+           
     byte* pp = (byte*)(void*)&bmp085_data; 
     for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
      *pp++ = eeprom32.readByte(address++);
 
-    bt.print(bmp085_data.Press);   bt.print(",");
-    bt.print(bmp085_data.Alt);     bt.print(",");
-    bt.print(bmp085_data.Temp);    bt.print(",");
-    bt.print(bmp085_data.hours);   bt.print(",");
-    bt.print(bmp085_data.minutes); bt.print(",");   
+    if (bmp085_data.Press == 0.0 && bmp085_data.Alt == 0.0 && bmp085_data.Temp == 0.0) break;
+    
+    bt.print(index++);             bt.print(";");
+    bt.print(bmp085_data.Press);   bt.print(";");
+    bt.print(bmp085_data.Alt);     bt.print(";");
+    bt.print(bmp085_data.Temp);    bt.print(";");
+    bt.print(bmp085_data.hours);   bt.print(";");
+    bt.print(bmp085_data.minutes); bt.print(";");   
     bt.println(bmp085_data.color);
     
    }
    
+   bt.println("--------------- STOP -----------------------");
+    
 }
 // --------------------------- Save Barometer Data to EEPROM -------------------------------------
 
