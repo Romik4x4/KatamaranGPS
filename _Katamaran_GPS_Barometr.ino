@@ -475,8 +475,15 @@ void GPS_Track_Output( void ) {
   
   if (digitalRead(BT_CONNECT) == HIGH) {      
   
-  bt.println("--------------- START -----------------------");
-
+  bt.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+  bt.println("<gpx xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"1.0\"");
+  bt.println("xmlns=\"http://www.topografix.com/GPX/1/0\" creator=\"Polar WebSync 2.3 - www.polar.fi\"");
+  bt.println("xsi:schemaLocation=\"http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd\">");
+  bt.println("<time>2011-09-22T18:56:51Z</time>");
+  bt.println("<trk>");
+  bt.println("<name>exercise</name>");
+  bt.println("<trkseg>");
+    
   while (address < (EE24LC256MAXBYTES - (sizeof(gps_tracker)+1) ) )  {
     
    byte* pp = (byte*)(void*)&gps_tracker; 
@@ -484,19 +491,42 @@ void GPS_Track_Output( void ) {
     *pp++ = eeprom256.readByte(address++);
   
      if (gps_tracker.days == 0 && gps_tracker.months == 0 && gps_tracker.years == 0) break;
+     if (gps_tracker.days == 255 && gps_tracker.months == 255) break;
      
-     bt.print(count++);             bt.print(';');
-     bt.print(gps_tracker.days);    bt.print(';');
-     bt.print(gps_tracker.months);  bt.print(';');
-     bt.print(gps_tracker.years);   bt.print(';');     
-     bt.print(gps_tracker.hours);   bt.print(';');     
-     bt.print(gps_tracker.minutes); bt.print(';');
-     bt.print(gps_tracker.lats,6);  bt.print(';');
-     bt.print(gps_tracker.lngs,6);  
-     bt.println();
+//     bt.print(count++);             bt.print(';');
+//     bt.print(gps_tracker.days);    bt.print(';');
+//     bt.print(gps_tracker.months);  bt.print(';');
+//     bt.print(gps_tracker.years);   bt.print(';');     
+//     bt.print(gps_tracker.hours);   bt.print(';');     
+//     bt.print(gps_tracker.minutes); bt.print(';');
+//     bt.print(gps_tracker.lats,6);  bt.print(';');
+//     bt.print(gps_tracker.lngs,6);  
+//     bt.println();
+     
+      bt.print("<trkpt lat=\""); 
+      bt.print(gps_tracker.lats,6); 
+      bt.print("\" lon=\""); 
+      bt.print(gps_tracker.lngs,6); 
+      bt.println("\">");
+
+      bt.print("<time>"); 
+      bt.print(gps_tracker.years); 
+      bt.print("-");
+      bt.print(gps_tracker.months);
+      bt.print("-");
+      bt.print(gps_tracker.days); 
+      bt.print("T");
+      bt.print(gps_tracker.hours);
+      bt.print(":");
+      bt.print(gps_tracker.minutes);
+      bt.print(":00Z");
+      bt.println("</time>");
+      bt.println("</trkpt>");
     }
 
-   bt.println("--------------- STOP -----------------------");
+   bt.println("</trkseg>");
+   bt.println("</trk>");
+   bt.println("</gpx>");
     
    }  
   
@@ -1126,9 +1156,9 @@ void ShowDataVolt(boolean s) {
   //  lcd.setLine(x,y,106,y, WHITE);
   // }
 
-  int x = map(battary(),0.0,5.0,106,0);
-  lcd.setLine(x,y_volts,106,y_volts, WHITE);
-  y_volts++; if (y_volts > 130) y_volts=15;
+   int x = map(battary(),0.0,5.0,106,0);
+   lcd.setLine(x,y_volts,106,y_volts, WHITE);
+   y_volts++; if (y_volts > 130) y_volts=15;
   
   }  
   
