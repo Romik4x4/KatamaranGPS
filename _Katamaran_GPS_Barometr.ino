@@ -22,7 +22,7 @@
 
 int y_volts = 15;
 
-unsigned long code = 0;  // Keyboard for Setup
+unsigned long X_Menu = 1;  // Keyboard for Setup
 
 int y_pres = 15; // Позиция вывода а также позиция для EEPROM
 
@@ -109,17 +109,19 @@ struct bmp085_t // Данные о давлении,высоте и темпер
 #define DI_8 16619623
 #define DI_9 16603303
 
-#define DI_ONOFF   16580863
-#define DIS_UP     16613503 // VOL+
-#define DIS_DOWN   16617583 // VOL-
-#define DIS_LEFT   16605343 // >>|| Reverse Right
-#define DIS_RIGHT  16589023 // ||<< Reverse Left
-#define DIS_ENTER  16621663 // >|| Play
+#define DI_ONOFF  16580863
+#define DI_UP     16613503 // VOL+
+#define DI_DOWN   16617583 // VOL-
+#define DI_LEFT   16605343 // >>|| Reverse Right
+#define DI_RIGHT  16589023 // ||<< Reverse Left
+#define DI_ENTER  16621663 // >|| Play
 
 #define CONTRAST_UP 16769055 // +
 #define CONTRAST_DW 16754775 // -
 
-#define DISPLAY_NONE 0
+#define DISPLAY_NONE 0 // Не обновляем экран
+#define DISPLAY_MENU 1 // Если включен режим Setup()
+#define MAX_MENU     5 // Всего Меню на экране
 
 #define DEBUG 0
 
@@ -249,7 +251,10 @@ void setup() {
   lcd.clear(BLACK);  // clear the screen
 
   Serial1.begin(4800);  // GPS EM-406
+ 
   bt.begin(9600);       // Bluetooth
+  
+  // bt.print("AT+NAME=GPS\r\n");
 
   sensors.begin();
   sensors.setResolution(RTC_Thermometer, TEMPERATURE_PRECISION);
@@ -261,6 +266,7 @@ void setup() {
  // bt.println(char(eeprom256.readByte(0)));
   
   // erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
+ 
  
 }
 
@@ -285,6 +291,32 @@ void loop() {
    if (irrecv.decode(&results)) {
     
      if (DEBUG) bt.println(results.value);  
+     
+     if (results.value == DIS_UP && Display == DISPLAY_MENU) {
+       X_Menu--; if (X_Menu == 0) X_Menu = MAX_MENU; 
+       Setup(); 
+     }
+     
+     if (results.value == DIS_DOWN && Display == DISPLAY_MENU) {
+       X_Menu++; if (X_Menu > MAX_MENU) X_Menu=1; 
+       Setup(); 
+     }
+     
+     if (results.value == DIS_ENTER && Display == DISPLAY_MENU) {
+      switch (X_Menu) {      
+       case 1: results.value = DISPLAY_1; break;
+       case 2: results.value = DISPLAY_2; break;
+       case 3: results.value = DISPLAY_3; break;
+       case 4: results.value = DISPLAY_4; break;
+       case 5: results.value = DISPLAY_5; break;
+       case 6: results.value = DISPLAY_6; break;
+       case 7: results.value = DISPLAY_7; break;
+       case 8: results.value = DISPLAY_8; break;
+       case 9: results.value = DISPLAY_9; break;
+      }
+     }  
+     
+     
      
     switch (results.value) {      
      case DIS_1: results.value = DISPLAY_1; break;
@@ -481,7 +513,7 @@ void GPS_Track_Output( void ) {
   bt.println("xsi:schemaLocation=\"http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd\">");
   bt.println("<time>2011-09-22T18:56:51Z</time>");
   bt.println("<trk>");
-  bt.println("<name>exercise</name>");
+  bt.println("<name>GPS Track by Roma Kuzmin</name>");
   bt.println("<trkseg>");
     
   while (address < (EE24LC256MAXBYTES - (sizeof(gps_tracker)+1) ) )  {
@@ -960,15 +992,25 @@ void ShowData(boolean s) {
 void Setup( void ) {
   
   char f[50];
-
-  if (code == 0) {
-   strcpy(f,"1. Set Time");
-   lcd.setStr(f,1,1,BLACK,WHITE);
-   strcpy(f,"2. Set Date");
-   lcd.setStr(f,15,1,WHITE,BLACK);
+  
+  unsigned int text[5];
+  unsigned int   bg[5];
+  
+  for(byte i=0;i<5;i++) {
+    text[i] = WHITE;
+    bg[i] = BLACK;
   }
   
-  Display = DISPLAY_NONE;
+  text[X_Menu-1] = BLACK; 
+    bg[X_Menu-1] = WHITE;
+  
+   strcpy(f,"Analog Clock"); lcd.setStr(f, 1,10,text[0],bg[0]);   
+   strcpy(f,"BMP085 Data");  lcd.setStr(f,15,10,text[1],bg[1]);
+   strcpy(f,"GPS Data");     lcd.setStr(f,30,10,text[2],bg[2]);
+   strcpy(f,"Barometr");     lcd.setStr(f,45,10,text[3],bg[3]);
+   strcpy(f,"Voltmetr");     lcd.setStr(f,60,10,text[4],bg[4]);
+    
+  Display = DISPLAY_MENU;
 
 }
 
