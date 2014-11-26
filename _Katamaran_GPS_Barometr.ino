@@ -309,14 +309,13 @@ void loop() {
      if (results.value == DIS_ENTER && Display == DISPLAY_MENU) {
       switch (X_Menu) {      
        case 1: results.value = DISPLAY_1; break;
-       case 2: results.value = DISPLAY_2; break;
+       case 2: results.value = DISPLAY_6; break;
        case 3: results.value = DISPLAY_3; break;
        case 4: results.value = DISPLAY_4; break;
        case 5: results.value = DISPLAY_5; break;
-       case 6: results.value = DISPLAY_6; break;
-       case 7: results.value = DISPLAY_7; break;
-       case 8: results.value = DISPLAY_8; break;
-       case 9: results.value = DISPLAY_9; break;
+       case 6: results.value = DISPLAY_7; break;
+       case 7: results.value = DISPLAY_8; break;
+       case 8: if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true; results.value = DISPLAY_2; break;
       }
      }  
      
@@ -508,9 +507,12 @@ void GPS_Track_Output( void ) {
   
   unsigned long address = 0;
   int count = 0;
+  char f[20];
   
   if (digitalRead(BT_CONNECT) == HIGH) {      
   
+    lcd.clear(BLACK);
+    
     DateTime now = rtc.now();
  
   bt.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
@@ -535,7 +537,10 @@ void GPS_Track_Output( void ) {
   bt.println("<trkseg>");
     
   while (address < (EE24LC256MAXBYTES - (sizeof(gps_tracker)+1) ) )  {
-    
+  
+   sprintf(f,"Output: %.4d",address);
+   lcd.setStr(f,3,3,YELLOW,BLACK);
+   
    byte* pp = (byte*)(void*)&gps_tracker; 
    for (unsigned int i = 0; i < sizeof(gps_tracker); i++)
     *pp++ = eeprom256.readByte(address++);
@@ -579,6 +584,9 @@ void GPS_Track_Output( void ) {
    bt.println("</gpx>");
     
    }  
+   
+   lcd.clear(BLACK);
+   Display = DISPLAY_2;
   
 }
 
@@ -1024,17 +1032,20 @@ void Setup( void ) {
   text[X_Menu-1] = BLACK; 
     bg[X_Menu-1] = WHITE;
   
-   strcpy(f,"Analog Clock");    lcd.setStr(f, 1, 10,text[0],bg[0]);   
-   strcpy(f,"This Menu");       lcd.setStr(f,15, 10,text[1],bg[1]);
-   strcpy(f,"BMP/GPS Data");    lcd.setStr(f,30, 10,text[2],bg[2]);
-   strcpy(f,"GPS Data");        lcd.setStr(f,45, 10,text[3],bg[3]);
-   strcpy(f,"Sun Set/Rise");    lcd.setStr(f,60, 10,text[4],bg[4]);
-   strcpy(f,"GPS Track Out");   lcd.setStr(f,75, 10,text[5],bg[5]);
-   strcpy(f,"Barometer");       lcd.setStr(f,90, 10,text[6],bg[6]);
-   strcpy(f,"GPS NMEA ON/OFF"); lcd.setStr(f,105,10,text[7],bg[7]);
+   strcpy(f,"1.Analog Clock");    lcd.setStr(f, 1, 10,text[0],bg[0]);   
+   strcpy(f,"2.Voltmete");        lcd.setStr(f,15, 10,text[1],bg[1]);
+   strcpy(f,"3.BMP/GPS Data");    lcd.setStr(f,30, 10,text[2],bg[2]);
+   strcpy(f,"4.GPS Data");        lcd.setStr(f,45, 10,text[3],bg[3]);
+   strcpy(f,"5.Sun Set/Rise");    lcd.setStr(f,60, 10,text[4],bg[4]);
+   strcpy(f,"6.GPX Track Out");   lcd.setStr(f,75, 10,text[5],bg[5]);
+   strcpy(f,"7.Barometer");       lcd.setStr(f,90, 10,text[6],bg[6]);
+   if (GPS_OUT) {
+    strcpy(f,"8.GPS NMEA ");      lcd.setStr(f,105,10,WHITE,RED);
+   } else {
+    strcpy(f,"8.GPS NMEA ");      lcd.setStr(f,105,10,text[7],bg[7]);
+   }     
 
-
-  Display = DISPLAY_MENU;
+   Display = DISPLAY_MENU; 
 
    
 }
@@ -1275,7 +1286,7 @@ void ShowBMP085(boolean s) {
   unsigned int v_BAR_EEPROM_POS = 0;
   int address = 0;
     
-  while(v_BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
+ /* while(v_BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
       
     byte* pp = (byte*)(void*)&bmp085_data; 
     for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
@@ -1291,7 +1302,7 @@ void ShowBMP085(boolean s) {
     y_pres++; if (y_pres > 130) y_pres=15;
     
   }  
- 
+ */
   //  0.0
   //   --------------------------> Y
   //   |
