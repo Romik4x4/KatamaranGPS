@@ -15,6 +15,9 @@
 #include <EEPROMAnything.h>
 #include <Sunrise.h>
 #include <I2C_eeprom.h>
+#include <RTClib.h>
+
+RTC_DS1307 rtc;  // DS1307 RTC Real Time Clock
 
 #define FIVE_MINUT 300000
 
@@ -121,7 +124,7 @@ struct bmp085_t // Данные о давлении,высоте и темпер
 
 #define DISPLAY_NONE 0 // Не обновляем экран
 #define DISPLAY_MENU 1 // Если включен режим Setup()
-#define MAX_MENU     5 // Всего Меню на экране
+#define MAX_MENU     8 // Всего Меню на экране 1-MAX_MENU
 
 #define DEBUG 0
 
@@ -223,7 +226,8 @@ void setup() {
   
   Wire.begin();  // Attach I2C Protocol
   delay(500);
-    
+  rtc.begin();
+  
   EEPROM_readAnything(0, configuration); // Чтения конфигурации
   
   Display = configuration.Display;             // Default DISPLAY_1;
@@ -265,9 +269,9 @@ void setup() {
  // eeprom256.writeByte(0,'b');
  // bt.println(char(eeprom256.readByte(0)));
   
-  // erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
+ // erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
  
- 
+    
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -507,11 +511,25 @@ void GPS_Track_Output( void ) {
   
   if (digitalRead(BT_CONNECT) == HIGH) {      
   
+    DateTime now = rtc.now();
+ 
   bt.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
   bt.println("<gpx xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"1.0\"");
   bt.println("xmlns=\"http://www.topografix.com/GPX/1/0\" creator=\"Polar WebSync 2.3 - www.polar.fi\"");
   bt.println("xsi:schemaLocation=\"http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd\">");
-  bt.println("<time>2011-09-22T18:56:51Z</time>");
+  bt.print("<time>");
+  bt.print(now.year());
+  bt.print("-");
+  if (now.month() < 10) bt.print("0"); bt.print(now.month());
+  bt.print("-");
+  if (now.day() < 10) bt.print("0"); bt.print(now.day());
+  bt.print("T");
+  if (now.hour() < 10) bt.print("0"); bt.print(now.hour());
+  bt.print(":");
+  if (now.minute() < 10) bt.print("0"); bt.print(now.minute());
+  bt.print(":");
+  if (now.second() < 10) bt.print("0"); bt.print(now.second());
+  bt.println("Z</time>");
   bt.println("<trk>");
   bt.println("<name>GPS Track by Roma Kuzmin</name>");
   bt.println("<trkseg>");
@@ -989,14 +1007,16 @@ void ShowData(boolean s) {
   }
 }
 
+// ------------------------ Setup Menu ----------------------------------
+
 void Setup( void ) {
   
-  char f[50];
+  char f[20];
   
-  unsigned int text[5];
-  unsigned int   bg[5];
+  unsigned int text[8];
+  unsigned int   bg[8];
   
-  for(byte i=0;i<5;i++) {
+  for(byte i=0;i<8;i++) {
     text[i] = WHITE;
     bg[i] = BLACK;
   }
@@ -1004,14 +1024,19 @@ void Setup( void ) {
   text[X_Menu-1] = BLACK; 
     bg[X_Menu-1] = WHITE;
   
-   strcpy(f,"Analog Clock"); lcd.setStr(f, 1,10,text[0],bg[0]);   
-   strcpy(f,"BMP085 Data");  lcd.setStr(f,15,10,text[1],bg[1]);
-   strcpy(f,"GPS Data");     lcd.setStr(f,30,10,text[2],bg[2]);
-   strcpy(f,"Barometr");     lcd.setStr(f,45,10,text[3],bg[3]);
-   strcpy(f,"Voltmetr");     lcd.setStr(f,60,10,text[4],bg[4]);
-    
+   strcpy(f,"Analog Clock");    lcd.setStr(f, 1, 10,text[0],bg[0]);   
+   strcpy(f,"This Menu");       lcd.setStr(f,15, 10,text[1],bg[1]);
+   strcpy(f,"BMP/GPS Data");    lcd.setStr(f,30, 10,text[2],bg[2]);
+   strcpy(f,"GPS Data");        lcd.setStr(f,45, 10,text[3],bg[3]);
+   strcpy(f,"Sun Set/Rise");    lcd.setStr(f,60, 10,text[4],bg[4]);
+   strcpy(f,"GPS Track Out");   lcd.setStr(f,75, 10,text[5],bg[5]);
+   strcpy(f,"Barometer");       lcd.setStr(f,90, 10,text[6],bg[6]);
+   strcpy(f,"GPS NMEA ON/OFF"); lcd.setStr(f,105,10,text[7],bg[7]);
+
+
   Display = DISPLAY_MENU;
 
+   
 }
 
 // -------------------------------- Show Data on Display 4 GPS/BT -----------------------------------
