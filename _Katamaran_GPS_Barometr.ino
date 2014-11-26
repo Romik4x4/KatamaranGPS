@@ -271,6 +271,8 @@ void setup() {
   
  // erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
  
+ // bt.println(sizeof(bmp085_data));
+ 
     
 }
 
@@ -434,13 +436,13 @@ void loop() {
 
  // --------------------------- GPS -----------------------
   
-  if(currentMillis - gpsTrackPI > FIVE_MINUT) { // Каждые 5 минут
+  if(currentMillis - gpsTrackPI > (FIVE_MINUT/2)) { // Каждые 5 минут
    gpsTrackPI = currentMillis;  
    Save_GPS_Pos();  // Save GPS Position
-   Save_Bar_Data(); // Save BMP_085 Data
+   // Save_Bar_Data(); // Save BMP_085 Data
   }
  
-  if(currentMillis - loopPreviousInterval > 300000) {  // Каждые 5 минут [300000]
+  if(currentMillis - loopPreviousInterval > FIVE_MINUT) {  // Каждые 5 минут [300000]
    loopPreviousInterval = currentMillis;  
    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid())
      set_1HZ_DS1307(false);
@@ -961,7 +963,7 @@ void ShowData(boolean s) {
    lcd.setStr(f,15,2,WHITE, BLACK);
 
    dtostrf(Temperature*0.1, 4, 2, output);
-   strcpy(f,"T[in]: ");
+   strcpy(f,"T[bar]: ");
    strcat(f,output);
    lcd.setStr(f,30,2,WHITE, BLACK);
        
