@@ -228,12 +228,14 @@ void setup() {
   delay(500);
   rtc.begin();
   
+  // rtc.adjust(DateTime(__DATE__, __TIME__)); // Востоновить время.
+  
   EEPROM_readAnything(0, configuration); // Чтения конфигурации
   
   Display = configuration.Display;             // Default DISPLAY_1;
   Contrast = configuration.Contrast;           // Default 44
   
-  set_1HZ_DS1307(true); // Включаем синий светодиод на DS1307
+  rtc.writeSqwPinMode(SquareWave1HZ); // Включаем синий светодиод на DS1307
   
   // delay(1000); // For BMP085 - Зачем не понятно  
   // setDateTime(); // Установка начального времени
@@ -272,7 +274,6 @@ void setup() {
  // erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
  
  // bt.println(sizeof(bmp085_data));
- 
     
 }
 
@@ -437,6 +438,10 @@ void loop() {
  // --------------------------- GPS -----------------------
   
   if(currentMillis - gpsTrackPI > (FIVE_MINUT/2)) { // Каждые 5 минут
+  DateTime dt = rtc.now();
+  bt.println(dt.secondstime());
+  bt.println(dt.unixtime());
+  
    gpsTrackPI = currentMillis;  
    Save_GPS_Pos();  // Save GPS Position
    // Save_Bar_Data(); // Save BMP_085 Data
@@ -445,9 +450,9 @@ void loop() {
   if(currentMillis - loopPreviousInterval > FIVE_MINUT) {  // Каждые 5 минут [300000]
    loopPreviousInterval = currentMillis;  
    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid())
-     set_1HZ_DS1307(false);
+     rtc.writeSqwPinMode(OFF);             // Выключаем синий светодиод на DS1307
      set_GPS_DateTime();
-     set_1HZ_DS1307(true);
+     rtc.writeSqwPinMode(SquareWave1HZ); // Включаем синий светодиод на DS1307
   }
    
    if (Serial1.available()) {
@@ -456,7 +461,7 @@ void loop() {
      if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);  
    }
     
-  if(currentMillis - gps_out_pi > 250) { 
+  if(currentMillis - gps_out_pi > 250) {    
    gps_out_pi = currentMillis;  
    if (GPS_OUT) {
    if (GPS_OUT_LED) {  digitalWrite(CPU_LED,HIGH); GPS_OUT_LED = false; } 
@@ -702,24 +707,6 @@ void erase_eeprom_bmp085( void ) {
   BAR_EEPROM_POS = 0;
   lcd.clear(BLACK);
    
-}
-
-// --------------------------- Мигает светодиод 1 HZ от RTC DS1307 -------------------------------
-
-void set_1HZ_DS1307( boolean mode) {
-   
- if (mode == false) {
-  Wire.beginTransmission(0x68);
-  Wire.write(0x00);
-  Wire.write(0x00);              // Set Square Wave to OFF
-  Wire.endTransmission();
-} else { 
-  Wire.beginTransmission(0x68);
-  Wire.write(0x07);
-  Wire.write(0x10);              // Set Square Wave to 1 Hz
-  Wire.endTransmission();
- }
-  
 }
 
 // -------------------------- Измерение входного напряжения от батарейки 3.7V Батарейка 4.x - Зарядка ----
@@ -1305,6 +1292,18 @@ void ShowBMP085(boolean s) {
     
   }  
  */
+ 
+  for(int j=0;j<130;j++) {
+    
+    int x = map(random(700,790),700,790,106,0);   
+    lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
+    
+    lcd.setLine(x,y_pres,106,y_pres, WHITE); 
+    
+    y_pres++; if (y_pres > 130) y_pres=15;
+    
+  }
+ 
   //  0.0
   //   --------------------------> Y
   //   |
