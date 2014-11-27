@@ -438,10 +438,6 @@ void loop() {
  // --------------------------- GPS -----------------------
   
   if(currentMillis - gpsTrackPI > (FIVE_MINUT/2)) { // Каждые 5 минут
-  DateTime dt = rtc.now();
-  bt.println(dt.secondstime());
-  bt.println(dt.unixtime());
-  
    gpsTrackPI = currentMillis;  
    Save_GPS_Pos();  // Save GPS Position
    // Save_Bar_Data(); // Save BMP_085 Data
