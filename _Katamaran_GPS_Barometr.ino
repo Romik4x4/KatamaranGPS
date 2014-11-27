@@ -180,7 +180,7 @@ SoftwareSerial bt(23,22); // RX,TX
 #define BT_CONNECT 30     // PA6/D30 HIGH if BT connected
 
 TinyGPSPlus gps;
-boolean GPS_OUT = false;
+boolean GPS_OUT = false; // Включить и выключить NMEA Output
 
 //////////////////////////////////////////// Часы ////////////////////////
 
