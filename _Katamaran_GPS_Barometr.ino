@@ -60,8 +60,8 @@ struct gps_t   // Координаты для GPS Трекера sizeof == 14 By
 struct bmp085_t // Данные о давлении,высоте и температуре
 {    
     double Press,Alt,Temp;
-    byte hours,minutes,color;
-  
+    unsigned long unix_time; 
+    
 } bmp085_data;
 
 //---------------- IR Кнопки --------------------------
@@ -443,7 +443,18 @@ void loop() {
    // Save_Bar_Data(); // Save BMP_085 Data
    
     DateTime now = rtc.now();
-   bt.println((now.unixtime()/1800)%96);
+    
+    // 48 часов * 60 минут = 2880 Минут
+    // 2880 минут / 30 минут = 96 Ячеек
+    // (UnixTime / 1800) % 96 = номер ячейки
+
+   bt.println("----");    
+   bt.println(sizeof(bmp085_data),DEC);
+   bt.println(EE24LC32MAXBYTES / sizeof(bmp085_data, DEC) );
+   bt.println(48*60,DEC);
+   bt.println(2880/25,DEC);
+   bt.println((now.unixtime()/1800)%115,DEC);
+   bt.println("----");
   }
  
   if(currentMillis - loopPreviousInterval > FIVE_MINUT) {  // Каждые 5 минут [300000]
@@ -618,9 +629,9 @@ void Read_Data_BMP_EEPROM( void ) {
     bt.print(bmp085_data.Press);   bt.print(";");
     bt.print(bmp085_data.Alt);     bt.print(";");
     bt.print(bmp085_data.Temp);    bt.print(";");
-    bt.print(bmp085_data.hours);   bt.print(";");
-    bt.print(bmp085_data.minutes); bt.print(";");   
-    bt.println(bmp085_data.color);
+//    bt.print(bmp085_data.hours);   bt.print(";");
+//    bt.print(bmp085_data.minutes); bt.print(";");   
+//    bt.println(bmp085_data.color);
     
    }
    
@@ -655,10 +666,10 @@ void Save_Bar_Data( void ) {
   bmp085_data.Alt   = Altitude/100.0;
   bmp085_data.Temp  = Temperature*0.1;
   
-  bmp085_data.hours = hours;       
-  bmp085_data.minutes = minutes;     
+ // bmp085_data.hours = hours;       
+ // bmp085_data.minutes = minutes;     
 
-  if (BAR_EEPROM_POS > 130) bmp085_data.color = 1; else bmp085_data.color = 0;
+ // if (BAR_EEPROM_POS > 130) bmp085_data.color = 1; else bmp085_data.color = 0;
   
    const byte* p = (const byte*)(const void*)&bmp085_data;
    for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
@@ -667,7 +678,7 @@ void Save_Bar_Data( void ) {
   if (BAR_EEPROM_POS >  (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1) ) ) {
    erase_eeprom_bmp085();
    BAR_EEPROM_POS = 0;
-   bmp085_data.color = 0;
+//   bmp085_data.color = 0;
   }
   
    
@@ -685,9 +696,9 @@ void erase_eeprom_bmp085( void ) {
   bmp085_data.Alt   = 0.0;
   bmp085_data.Temp  = 0.0;
   
-  bmp085_data.hours   = 0;       
-  bmp085_data.minutes = 0;     
-  bmp085_data.color   = 0;
+ // bmp085_data.hours   = 0;       
+//  bmp085_data.minutes = 0;     
+//  bmp085_data.color   = 0;
 
   while(BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
    
