@@ -31,7 +31,7 @@ int y_pres = 15; // Позиция вывода а также позиция д�
 
 boolean bar_color = true;
 
-unsigned long BAR_EEPROM_POS = 0;
+unsigned int BAR_EEPROM_POS = 0;
 
 // -------------------------------
 
@@ -206,10 +206,12 @@ int weekDay,monthDay,month,year;
 unsigned long Display;
 
 unsigned long currentMillis;
-unsigned long PreviousInterval = 0;      // Для всех внутренних функций
-unsigned long loopPreviousInterval = 0;  // Для управления GPS SetDateTime
-unsigned long voltPreviousInterval = 0;  // Для вольтметра
-unsigned long barPreviousInterval = 0;   // Для барометра
+unsigned long PreviousInterval = 0;        // Для всех внутренних функций
+unsigned long loopPreviousInterval = 0;    // Для управления GPS SetDateTime
+unsigned long voltPreviousInterval = 0;    // Для вольтметра
+unsigned long barPreviousInterval = 0;     // Для барометра для показа
+unsigned long BarSavePreviousInterval = 0; // Для барометра сохранять
+unsigned long updatePreviousInterval = 0;  // Для обновление данных с BMP085
 
 unsigned long gpsTrackPI = 0;            // Каждые пять минут сохраняем GPS Position
 unsigned long gps_out_pi = 0;            // Если GPS_OUT мигаем светодиодом на MCU
@@ -260,21 +262,21 @@ void setup() {
  
   bt.begin(9600);       // Bluetooth
   
-  // bt.print("AT+NAME=GPS\r\n");
-
   sensors.begin();
   sensors.setResolution(RTC_Thermometer, TEMPERATURE_PRECISION);
+  
+  // erase_eeprom_bmp085();  // Стереть все данные EEPROM BMP085  
+  
+  // Read_Data_BMP_EEPROM(); // Чтение всех данный из EEPROM
 
- // eeprom32.writeByte(0,'a');
- // bt.println(char(eeprom32.readByte(0)));
+  dps.getPressure(&Pressure);        // Давление
+  dps.getAltitude(&Altitude);        // Высота 
+  dps.getTemperature(&Temperature);  // Температура
+          
+  bmp085_data.Press = Pressure/133.3;
+  bmp085_data.Alt   = Altitude/100.0;
+  bmp085_data.Temp  = Temperature*0.1;
   
- // eeprom256.writeByte(0,'b');
- // bt.println(char(eeprom256.readByte(0)));
-  
- // erase_eeprom_bmp085(); // Стереть все данные EEPROM BMP085  
- 
- // bt.println(sizeof(bmp085_data));
-    
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -284,6 +286,19 @@ void setup() {
 void loop() {
   
    currentMillis = millis();
+
+  if(currentMillis - updatePreviousInterval > 10000) {  // Каждые 10 секунд
+   updatePreviousInterval = currentMillis;  
+
+   dps.getPressure(&Pressure);        // Давление
+   dps.getAltitude(&Altitude);        // Высота 
+   dps.getTemperature(&Temperature);  // Температура
+
+   bmp085_data.Press = ( bmp085_data.Press + Pressure/133.3 ) / 2.0;
+   bmp085_data.Alt   = ( bmp085_data.Alt + Altitude/100.0 ) / 2.0;
+   bmp085_data.Temp  = ( bmp085_data.Temp + Temperature*0.1 ) / 2.0;
+
+  }
 
    if (Display == DISPLAY_1) Analog_Time_Clock();
    if (Display == DISPLAY_2) Setup();
@@ -321,9 +336,7 @@ void loop() {
        case 8: if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true; results.value = DISPLAY_2; break;
       }
      }  
-     
-     
-     
+          
     switch (results.value) {      
      case DIS_1: results.value = DISPLAY_1; break;
      case DIS_2: results.value = DISPLAY_2; break;
@@ -396,8 +409,8 @@ void loop() {
       break;
 
      case DISPLAY_7:
-      GPS_Track_Output();
-      // Read_Data_BMP_EEPROM();
+//      GPS_Track_Output();
+      Read_Data_BMP_EEPROM();
       break;
       
      case DISPLAY_8:
@@ -437,24 +450,14 @@ void loop() {
 
  // --------------------------- GPS -----------------------
   
-  if(currentMillis - gpsTrackPI > (FIVE_MINUT/2)) { // Каждые 5 минут
+  if(currentMillis - gpsTrackPI > (FIVE_MINUT/2)) { // Каждые 2.5 минут Save GPS Position
    gpsTrackPI = currentMillis;  
    Save_GPS_Pos();  // Save GPS Position
-   // Save_Bar_Data(); // Save BMP_085 Data
-   
-    DateTime now = rtc.now();
-    
-    // 48 часов * 60 минут = 2880 Минут
-    // 2880 минут / 30 минут = 96 Ячеек
-    // (UnixTime / 1800) % 96 = номер ячейки
-
-   bt.println("----");    
-   bt.println(sizeof(bmp085_data),DEC);
-   bt.println(EE24LC32MAXBYTES / sizeof(bmp085_data, DEC) );
-   bt.println(48*60,DEC);
-   bt.println(2880/25,DEC);
-   bt.println((now.unixtime()/1800)%115,DEC);
-   bt.println("----");
+  }
+  
+  if(currentMillis - BarSavePreviousInterval > (FIVE_MINUT)){ // Каждые 20 минут Save BAR Parameters 
+   BarSavePreviousInterval = currentMillis;
+   Save_Bar_Data(); // Save BMP_085 Data  
   }
  
   if(currentMillis - loopPreviousInterval > FIVE_MINUT) {  // Каждые 5 минут [300000]
@@ -607,80 +610,53 @@ void GPS_Track_Output( void ) {
   
 }
 
-
 // --------------------------- Output BMP_085 DATA from EEPROM -----------------------------------
 
 void Read_Data_BMP_EEPROM( void ) {
   
-   int address = 0;
-   int index = 0;
-   
+   BAR_EEPROM_POS = 0;
+
    bt.println("--------------- START -----------------------");
     
-   while(address < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
+   while(  BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
            
     byte* pp = (byte*)(void*)&bmp085_data; 
     for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
-     *pp++ = eeprom32.readByte(address++);
-
-    if (bmp085_data.Press == 0.0 && bmp085_data.Alt == 0.0 && bmp085_data.Temp == 0.0) break;
+     *pp++ = eeprom32.readByte(BAR_EEPROM_POS++);
     
-    bt.print(index++);             bt.print(";");
-    bt.print(bmp085_data.Press);   bt.print(";");
-    bt.print(bmp085_data.Alt);     bt.print(";");
-    bt.print(bmp085_data.Temp);    bt.print(";");
-//    bt.print(bmp085_data.hours);   bt.print(";");
-//    bt.print(bmp085_data.minutes); bt.print(";");   
-//    bt.println(bmp085_data.color);
+    bt.print(bmp085_data.Press);      bt.print(";");
+    bt.print(bmp085_data.Alt);        bt.print(";");
+    bt.print(bmp085_data.Temp);       bt.print(";");
+    bt.println(bmp085_data.unix_time);
     
    }
    
    bt.println("--------------- STOP -----------------------");
+   
+   BAR_EEPROM_POS = 0;
     
 }
 // --------------------------- Save Barometer Data to EEPROM -------------------------------------
 
 void Save_Bar_Data( void ) {
-  
-  // Каждые пять минут пишем в EEPROM
- 
- dps.getPressure(&Pressure);        // Давление
- dps.getAltitude(&Altitude);        // Высота 
- dps.getTemperature(&Temperature);  // Температура
    
-   Wire.beginTransmission(DS1307_ADDRESS);
-   Wire.write(0);
-   Wire.endTransmission();
-   Wire.requestFrom(DS1307_ADDRESS, 7);
+  dps.getPressure(&Pressure);        // Давление
+  dps.getAltitude(&Altitude);        // Высота 
+  dps.getTemperature(&Temperature);  // Температура
+   
+  DateTime now = rtc.now();
+       
+  bmp085_data.Press = ( bmp085_data.Press + Pressure/133.3 ) / 2.0;
+  bmp085_data.Alt   = ( bmp085_data.Alt + Altitude/100.0 ) / 2.0;
+  bmp085_data.Temp  = ( bmp085_data.Temp + Temperature*0.1 ) / 2.0;
+  
+  bmp085_data.unix_time = now.unixtime();
 
-   byte seconds = bcdToDec(Wire.read());
-   byte minutes = bcdToDec(Wire.read());
-   byte hours = bcdToDec(Wire.read() & 0b111111); // 24 hour time
-  
-   byte weekDay = bcdToDec(Wire.read()); // 0-6 -> sunday - Saturday
-   byte monthDay = bcdToDec(Wire.read());
-   byte month = bcdToDec(Wire.read());
-   byte year = bcdToDec(Wire.read());
-  
-  bmp085_data.Press = Pressure/133.3;
-  bmp085_data.Alt   = Altitude/100.0;
-  bmp085_data.Temp  = Temperature*0.1;
-  
- // bmp085_data.hours = hours;       
- // bmp085_data.minutes = minutes;     
-
- // if (BAR_EEPROM_POS > 130) bmp085_data.color = 1; else bmp085_data.color = 0;
-  
+   BAR_EEPROM_POS = ( (now.unixtime()/1800)%115 ) * sizeof(bmp085_data); // Номер ячейки памяти.
+   
    const byte* p = (const byte*)(const void*)&bmp085_data;
    for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
     eeprom32.writeByte(BAR_EEPROM_POS++,*p++);
-    
-  if (BAR_EEPROM_POS >  (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1) ) ) {
-   erase_eeprom_bmp085();
-   BAR_EEPROM_POS = 0;
-//   bmp085_data.color = 0;
-  }
-  
    
 }
 
@@ -692,15 +668,14 @@ void erase_eeprom_bmp085( void ) {
   
   BAR_EEPROM_POS = 0;
    
-  bmp085_data.Press = 0.0;
-  bmp085_data.Alt   = 0.0;
-  bmp085_data.Temp  = 0.0;
-  
- // bmp085_data.hours   = 0;       
-//  bmp085_data.minutes = 0;     
-//  bmp085_data.color   = 0;
+  bmp085_data.Press     = 0.0;
+  bmp085_data.Alt       = 0.0;
+  bmp085_data.Temp      = 0.0;
+  bmp085_data.unix_time = 0;
 
-  while(BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
+  lcd.clear(BLACK);
+  
+  while(BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) + 1))) {
    
    const byte* p = (const byte*)(const void*)&bmp085_data;
    for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
@@ -709,12 +684,9 @@ void erase_eeprom_bmp085( void ) {
     sprintf(f,"%.3d",BAR_EEPROM_POS);
     lcd.setStr(f,2,2,YELLOW,BLACK);
   }
-  
-  // bt.println(BAR_EEPROM_POS);
-  // bt.println(sizeof(bmp085_data));
-  // bt.println(EE24LC32MAXBYTES);
-  
+    
   BAR_EEPROM_POS = 0;
+  
   lcd.clear(BLACK);
    
 }
@@ -1326,4 +1298,24 @@ void ShowBMP085(boolean s) {
   
 }
 
+/*
 
+   DateTime now = rtc.now();
+    
+    // 48 часов * 60 минут = 2880 Минут
+    // 2880 минут / 30 минут = 96 Ячеек
+    // (UnixTime / 1800) % 96 = номер ячейки
+
+   bt.println("----");    
+   bt.println(now.hour());
+   bt.println(now.minute());
+   bt.println(now.second());
+   
+   bt.println(sizeof(bmp085_data),DEC); // 16 Байт
+   bt.println(EE24LC32MAXBYTES / sizeof(bmp085_data), DEC ); 
+   bt.println(48*60,DEC);
+   bt.println(2880/25,DEC);
+   bt.println((now.unixtime()/1800)%115,DEC);
+   bt.println("----");
+
+*/
