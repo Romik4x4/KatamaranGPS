@@ -277,6 +277,7 @@ void setup() {
   bmp085_data.Alt   = Altitude/100.0;
   bmp085_data.Temp  = Temperature*0.1;
   
+  start = true; // Для того чтобы вернуть сохраненый дисплай и обновить его.
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -308,7 +309,7 @@ void loop() {
    if (Display == DISPLAY_6) ShowDataVolt(start);
    if (Display == DISPLAY_8) ShowBMP085(start);
    
-   start = false; // Если была перегрузка
+   start = false; // Если была перегрузка, чтобы не перересовывать всю графику
   
    if (irrecv.decode(&results)) {
     
@@ -455,7 +456,7 @@ void loop() {
    Save_GPS_Pos();  // Save GPS Position
   }
   
-  if(currentMillis - BarSavePreviousInterval > (FIVE_MINUT)){ // Каждые 20 минут Save BAR Parameters 
+  if(currentMillis - BarSavePreviousInterval > (FIVE_MINUT*4)){ // Каждые 20 минут Save BAR Parameters 
    BarSavePreviousInterval = currentMillis;
    Save_Bar_Data(); // Save BMP_085 Data  
   }
@@ -1164,7 +1165,15 @@ void ShowDataSun( boolean s) {
 
 void ShowDataVolt(boolean s) {
 
-  if ((currentMillis - voltPreviousInterval > 300000) || (s == true) ) {  // 300000 = 5 Минут
+  char f[10];
+  
+   if ((currentMillis - PreviousInterval > 1000) || (s == true) ) { 
+     PreviousInterval = currentMillis;  
+     dtostrf(battary(),4,2, f);
+     lcd.setStr(f,0,90,RED,BLACK);  
+   }
+  
+  if ((currentMillis - voltPreviousInterval > FIVE_MINUT/2) || (s == true) ) { 
    voltPreviousInterval = currentMillis;  
   
   // x,y x,y
@@ -1197,17 +1206,11 @@ void ShowDataVolt(boolean s) {
   
   lcd.setChar('2', 122,112+6, WHITE,BLACK);
   lcd.setChar('4', 122,122+6, WHITE,BLACK);
-  
-  // lcd.setPixel(WHITE, 106,15);
 
-  // for(int y=15;y<130;y++) {
-  // int x=map(random(0,6),0,6,106,0);
-  //  lcd.setLine(x,y,106,y, WHITE);
-  // }
-
-   int x = map(battary(),0.0,5.0,106,0);
-   lcd.setLine(x,y_volts,106,y_volts, WHITE);
-   y_volts++; if (y_volts > 130) y_volts=15;
+  int x = map(battary(),0.0,5.0,106,0);
+  lcd.setLine(x,y_volts,106,y_volts, WHITE);
+   
+  y_volts++; if (y_volts > 130) { lcd.clear(BLACK); y_volts=15; start=true; }
   
   }  
   
