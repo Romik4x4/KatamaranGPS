@@ -651,9 +651,15 @@ void Save_Bar_Data( void ) {
   bmp085_data.Alt   = ( bmp085_data.Alt + Altitude/100.0 ) / 2.0;
   bmp085_data.Temp  = ( bmp085_data.Temp + Temperature*0.1 ) / 2.0;
   
-  bmp085_data.unix_time = now.unixtime();
+   bmp085_data.unix_time = now.unixtime() - (60 * 60 * UTC);
 
-   BAR_EEPROM_POS = ( (now.unixtime()/1800)%115 ) * sizeof(bmp085_data); // Номер ячейки памяти.
+   BAR_EEPROM_POS = ( (bmp085_data.unix_time/1800)%96 ) * sizeof(bmp085_data); // Номер ячейки памяти.
+   
+   //bt.println(BAR_EEPROM_POS);
+   //bt.println(bmp085_data.unix_time);
+   //bt.println(now.hour());
+   //bt.println(now.minute());   
+   //bt.println("-------");
    
    const byte* p = (const byte*)(const void*)&bmp085_data;
    for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
