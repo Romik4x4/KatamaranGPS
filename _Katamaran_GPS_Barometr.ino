@@ -65,6 +65,12 @@ struct bmp085_t // Данные о давлении,высоте и темпер
     
 } bmp085_data;
 
+struct bmp085_out // Данные о давлении,высоте и температуре
+{    
+    double Press,Alt,Temp;
+    unsigned long unix_time; 
+    
+} bmp085_data_out;
 //---------------- IR Кнопки --------------------------
 
 #define DISPLAY_1 16724175 // 1 Analog Clock
@@ -620,29 +626,28 @@ void Read_Data_BMP_EEPROM( void ) {
    Average<double> alt_data(96); // Вычисление максимального и минимального значения
    Average<double> tem_data(96); // Вычисление максимального и минимального значения
    
-   
    BAR_EEPROM_POS = 0;
 
    bt.println("--------------- START -----------------------");
     
-   while(  BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
+   while(  BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data_out) +1))) {
            
-    byte* pp = (byte*)(void*)&bmp085_data; 
-    for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
+    byte* pp = (byte*)(void*)&bmp085_data_out; 
+    for (unsigned int i = 0; i < sizeof(bmp085_data_out); i++)
      *pp++ = eeprom32.readByte(BAR_EEPROM_POS++);
     
-    if (bmp085_data.Press != 0.0) bar_data.push(bmp085_data.Press);
-    if (bmp085_data.Alt   != 0.0) alt_data.push(bmp085_data.Alt);
-    if (bmp085_data.Temp  != 0.0) tem_data.push(bmp085_data.Temp);         
+    if (bmp085_data_out.Press != 0.0) bar_data.push(bmp085_data_out.Press);
+    if (bmp085_data_out.Alt   != 0.0) alt_data.push(bmp085_data_out.Alt);
+    if (bmp085_data_out.Temp  != 0.0) tem_data.push(bmp085_data_out.Temp);         
     
-    //bt.print(bmp085_data.Press);      bt.print(";");
-    //bt.print(bmp085_data.Alt);        bt.print(";");
-    //bt.print(bmp085_data.Temp);       bt.print(";");
-    //bt.println(bmp085_data.unix_time);
+    bt.print(bmp085_data_out.Press);      bt.print(";");
+    bt.print(bmp085_data_out.Alt);        bt.print(";");
+    bt.print(bmp085_data_out.Temp);       bt.print(";");
+    bt.println(bmp085_data_out.unix_time);
         
    }
    
-   bt.println("");
+   bt.println("------------------------");
    bt.println(bar_data.maximum());
    bt.println(bar_data.minimum());
    bt.println("");
@@ -1246,27 +1251,41 @@ void ShowDataVolt(boolean s) {
 
 void ShowBMP085(boolean s) {
 
-  if ((currentMillis - barPreviousInterval > 300) || (s == true) ) {  // 300000 == 5 Минут
-   barPreviousInterval = currentMillis;      
+ if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || (s == true) ) {  // 300000 == 5 Минут
+      barPreviousInterval = currentMillis;      
   
-  dps.getPressure(&Pressure);  // Get data from BMP085
+   Average<double> bar_data(96); // Вычисление максимального и минимального значения
+   
+   BAR_EEPROM_POS = 0;
+ 
+   while(  BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
+           
+    byte* pp = (byte*)(void*)&bmp085_data_out; 
+    for (unsigned int i = 0; i < sizeof(bmp085_data_out); i++)
+     *pp++ = eeprom32.readByte(BAR_EEPROM_POS++);
+    
+    if (bmp085_data_out.Press != 0.0) bar_data.push(bmp085_data_out.Press);
+            
+   }
+
+  BAR_EEPROM_POS = 0;
 
   // x,y x,y две линии по X,Y
   
-  lcd.setLine(1,14,105,14,WHITE);
+  lcd.setLine(1,30,105,30,WHITE);
   lcd.setLine(107,0,107,129,WHITE);
 
-  // Давление  
+  // Давление     
 
-  lcd.setChar('B',  15,12, WHITE,BLACK);
-  lcd.setChar('A',  30,12, WHITE,BLACK);
-  lcd.setChar('R',  45,12, WHITE,BLACK);
-  lcd.setChar('O',  60,12, WHITE,BLACK);
-  lcd.setChar('M',  75,12, WHITE,BLACK);
-  lcd.setChar('T',  90,12, WHITE,BLACK);
-  lcd.setChar('R', 105,12, WHITE,BLACK);
+   char f[5];
+
+   sprintf(f,"%d",(int)bar_data.maximum());
+   lcd.setStr(f,0,3,WHITE,BLACK);
+   sprintf(f,"%d",(int)bar_data.minimum());    
+   lcd.setStr(f,85,3,WHITE,BLACK);
   
   // Время
+  
   lcd.setChar('0', 122,21, WHITE,BLACK);
   lcd.setChar('4', 122,32, RED,BLACK);
   lcd.setChar('8', 122,42+1, WHITE,BLACK);
@@ -1304,7 +1323,7 @@ void ShowBMP085(boolean s) {
   }  
  */
  
-  for(int j=0;j<130;j++) {
+ /* for(int j=0;j<130;j++) {
     
     int x = map(random(700,790),700,790,106,0);   
     lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
@@ -1313,7 +1332,7 @@ void ShowBMP085(boolean s) {
     
     y_pres++; if (y_pres > 130) y_pres=15;
     
-  }
+  } */
  
  // DateTime dt8 (dt6.unixtime() - 172800L); // Два дня прошло
  
