@@ -16,6 +16,7 @@
 #include <Sunrise.h>
 #include <I2C_eeprom.h>
 #include <RTClib.h>
+#include <Average.h>
 
 RTC_DS1307 rtc;  // DS1307 RTC Real Time Clock
 
@@ -410,7 +411,7 @@ void loop() {
       break;
 
      case DISPLAY_7:
-//      GPS_Track_Output();
+      // GPS_Track_Output();
       Read_Data_BMP_EEPROM();
       break;
       
@@ -615,6 +616,11 @@ void GPS_Track_Output( void ) {
 
 void Read_Data_BMP_EEPROM( void ) {
   
+   Average<double> bar_data(96); // Вычисление максимального и минимального значения
+   Average<double> alt_data(96); // Вычисление максимального и минимального значения
+   Average<double> tem_data(96); // Вычисление максимального и минимального значения
+   
+   
    BAR_EEPROM_POS = 0;
 
    bt.println("--------------- START -----------------------");
@@ -625,12 +631,26 @@ void Read_Data_BMP_EEPROM( void ) {
     for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
      *pp++ = eeprom32.readByte(BAR_EEPROM_POS++);
     
-    bt.print(bmp085_data.Press);      bt.print(";");
-    bt.print(bmp085_data.Alt);        bt.print(";");
-    bt.print(bmp085_data.Temp);       bt.print(";");
-    bt.println(bmp085_data.unix_time);
+    if (bmp085_data.Press != 0.0) bar_data.push(bmp085_data.Press);
+    if (bmp085_data.Alt   != 0.0) alt_data.push(bmp085_data.Alt);
+    if (bmp085_data.Temp  != 0.0) tem_data.push(bmp085_data.Temp);         
     
+    //bt.print(bmp085_data.Press);      bt.print(";");
+    //bt.print(bmp085_data.Alt);        bt.print(";");
+    //bt.print(bmp085_data.Temp);       bt.print(";");
+    //bt.println(bmp085_data.unix_time);
+        
    }
+   
+   bt.println("");
+   bt.println(bar_data.maximum());
+   bt.println(bar_data.minimum());
+   bt.println("");
+   bt.println(alt_data.maximum());
+   bt.println(alt_data.minimum());
+   bt.println("");
+   bt.println(tem_data.maximum());
+   bt.println(tem_data.minimum());
    
    bt.println("--------------- STOP -----------------------");
    
