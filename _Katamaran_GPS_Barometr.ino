@@ -1122,7 +1122,9 @@ void ShowDataGPS(boolean s) {
 
     if (gps.date.isValid() && gps.time.isValid()) {
             
-      sprintf(f,"gTime:%.2d:%.2d:%.2d",gps.time.hour()+UTC,gps.time.minute(),gps.time.second());
+      byte h = gps.time.hour()+UTC; if (h > 23)  h = h - 24;
+      
+      sprintf(f,"gTime:%.2d:%.2d:%.2d",h,gps.time.minute(),gps.time.second());
       lcd.setStr(f,45,2,WHITE, BLACK);              
       sprintf(f,"gDate:%.2d/%.2d/%.2d",gps.date.day(),gps.date.month(),gps.date.year());
       lcd.setStr(f,60,2,WHITE, BLACK);        
@@ -1299,6 +1301,7 @@ void ShowBMP085(boolean s) {
      if (bmp085_data_out.Press != 0.0) 
       bar_data.push(bmp085_data_out.Press);
     } else barArray[j] = 0.0;
+    if (DEBUG) bt.println(barArray[j]);
    }
 
    BAR_EEPROM_POS = 0;
@@ -1326,9 +1329,9 @@ void ShowBMP085(boolean s) {
   
    // Время
   
-   strcpy(f,"0");
+   strcpy(f,"2 Days");
    lcd.setStr(f,107,33,RED,BLACK);
-   strcpy(f,"23:59");
+   sprintf(f,"%.2d:%.2d",now.hour(),now.minute());
    lcd.setStr(f,107,88,GREEN,BLACK);
     
    y_pres = 31;
@@ -1337,8 +1340,11 @@ void ShowBMP085(boolean s) {
     
     int x = map(barArray[j],bar_data.minimum(),bar_data.maximum(),106,1);  
 
-    lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
-    lcd.setLine(x,y_pres,106,y_pres, WHITE); // Нарисовать данные    
+    if (barArray[j] != 0.0) {
+     lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
+     lcd.setLine(x,y_pres,106,y_pres, WHITE); // Нарисовать данные    
+    }
+    
     y_pres++; if (y_pres > 130) y_pres=31;
 
    } 
@@ -1356,24 +1362,4 @@ void ShowBMP085(boolean s) {
   
 }
 
-/*
 
-   DateTime now = rtc.now();
-    
-    // 48 часов * 60 минут = 2880 Минут
-    // 2880 минут / 30 минут = 96 Ячеек
-    // (UnixTime / 1800) % 96 = номер ячейки
-
-   bt.println("----");    
-   bt.println(now.hour());
-   bt.println(now.minute());
-   bt.println(now.second());
-   
-   bt.println(sizeof(bmp085_data),DEC); // 16 Байт
-   bt.println(EE24LC32MAXBYTES / sizeof(bmp085_data), DEC ); 
-   bt.println(48*60,DEC);
-   bt.println(2880/25,DEC);
-   bt.println((now.unixtime()/1800)%115,DEC);
-   bt.println("----");
-
-*/
