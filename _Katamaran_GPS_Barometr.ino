@@ -630,6 +630,8 @@ void Read_Data_BMP_EEPROM( void ) {
 
    bt.println("--------------- START -----------------------");
     
+   DateTime now = rtc.now();
+    
    while(  BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data_out) +1))) {
            
     byte* pp = (byte*)(void*)&bmp085_data_out; 
@@ -643,7 +645,22 @@ void Read_Data_BMP_EEPROM( void ) {
     bt.print(bmp085_data_out.Press);      bt.print(";");
     bt.print(bmp085_data_out.Alt);        bt.print(";");
     bt.print(bmp085_data_out.Temp);       bt.print(";");
-    bt.println(bmp085_data_out.unix_time);
+    bt.print(bmp085_data_out.unix_time);  bt.print(";");
+    bt.print(now.unixtime() - bmp085_data_out.unix_time); bt.print(";");
+    
+    DateTime eeTime (bmp085_data_out.unix_time);
+    bt.print(eeTime.year()); bt.print("-");
+    bt.print(eeTime.month());bt.print("-");
+    bt.print(eeTime.day());
+
+    bt.print("  ");
+
+    bt.print(eeTime.hour());bt.print(":");
+    bt.print(eeTime.minute());bt.print(":");
+    bt.print(eeTime.second());
+    
+    bt.println();
+    
         
    }
    
@@ -1335,6 +1352,10 @@ void ShowBMP085(boolean s) {
   } */
  
  // DateTime dt8 (dt6.unixtime() - 172800L); // Два дня прошло
+ 
+// если разница от текущего и записаванного >= 172800 то прошло два дня
+ 
+ //  NOW unix_timestamp("2014-12-01 23:00:11") -  БЫЛО unix_timestamp("2014-12-01 22:20:11") >= 172800 - НЕ ТО
  
   //  0.0
   //   --------------------------> Y
