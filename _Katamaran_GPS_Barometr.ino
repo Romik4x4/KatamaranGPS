@@ -3,7 +3,6 @@
 // ATMega 1284P (4K Bytes EEPROM)
 ///////////////////////////////////////
 
-
 #include <TinyGPS++.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -19,8 +18,7 @@
 #include <RTClib.h>
 #include <Average.h>
 
-#define DEBUG 1
-
+#define DEBUG 0
 
 RTC_DS1307 rtc;  // DS1307 RTC Real Time Clock
 
@@ -470,7 +468,7 @@ void loop() {
    Save_GPS_Pos();  // Save GPS Position
   }
   
-  if(currentMillis - BarSavePreviousInterval > (FIVE_MINUT)){ // Каждые 20 минут Save BAR Parameters 
+  if(currentMillis - BarSavePreviousInterval > (FIVE_MINUT*4)){ // Каждые 20 минут Save BAR Parameters 
    BarSavePreviousInterval = currentMillis;
    Save_Bar_Data(); // Save BMP_085 Data  
   }
@@ -639,7 +637,7 @@ void Read_Data_BMP_EEPROM( void ) {
     
    DateTime now = rtc.now();
     
-   while(  BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data_out) +1))) {
+   for(byte j=0;j<96;j++) {
            
     byte* pp = (byte*)(void*)&bmp085_data_out; 
     for (unsigned int i = 0; i < sizeof(bmp085_data_out); i++)
@@ -668,11 +666,10 @@ void Read_Data_BMP_EEPROM( void ) {
     bt.print(eeTime.second());
     
     bt.println();
-    
-        
+          
    }
    
-   bt.println("------------------------");
+   bt.println("-----------MAX and MIN-------------");
    bt.println(bar_data.maximum());
    bt.println(bar_data.minimum());
    bt.println("");
@@ -690,7 +687,11 @@ void Read_Data_BMP_EEPROM( void ) {
 // --------------------------- Save Barometer Data to EEPROM -------------------------------------
 
 void Save_Bar_Data( void ) {
-   
+
+    // 48 часов * 60 минут = 2880 Минут
+    // 2880 минут / 30 минут = 96 Ячеек
+    // (UnixTime / 1800) % 96 = номер ячейки
+
   dps.getPressure(&Pressure);        // Давление
   dps.getAltitude(&Altitude);        // Высота 
   dps.getTemperature(&Temperature);  // Температура
@@ -706,7 +707,7 @@ void Save_Bar_Data( void ) {
    BAR_EEPROM_POS = ( (bmp085_data.unix_time/1800)%96 ) * sizeof(bmp085_data); // Номер ячейки памяти.
 
    if (DEBUG) {
-    bt.println(BAR_EEPROM_POS);
+    bt.println(BAR_EEPROM_POS/sizeof(bmp085_data));
     bt.println(bmp085_data.unix_time);
     bt.println(now.hour());
     bt.println(now.minute());   
@@ -1341,42 +1342,8 @@ void ShowBMP085(boolean s) {
     y_pres++; if (y_pres > 130) y_pres=31;
 
    } 
-    
- /* while(v_BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
-      
-    byte* pp = (byte*)(void*)&bmp085_data; 
-    for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
-     *pp++ = eeprom32.readByte(address++);
-     
-    if (bmp085_data.hours == 0 && minutes == 0 ) break;
-    
-    int x = map(bmp085_data.Press,700,790,106,0);   
-    lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
   
-    if (bar_color) lcd.setLine(x,y_pres,106,y_pres, WHITE); // Нарисовать данные    
-    else lcd.setLine(x,y_pres,106,y_pres, RED); // Нарисовать данные
-    y_pres++; if (y_pres > 130) y_pres=15;
-    
-  }  
- */
- 
- /* for(int j=0;j<130;j++) {
-    
-    int x = map(random(700,790),700,790,106,0);   
-    lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
-    
-    lcd.setLine(x,y_pres,106,y_pres, WHITE); 
-    
-    y_pres++; if (y_pres > 130) y_pres=15;
-    
-  } */
- 
- // DateTime dt8 (dt6.unixtime() - 172800L); // Два дня прошло
- 
-// если разница от текущего и записаванного >= 172800 то прошло два дня
- 
- //  NOW unix_timestamp("2014-12-01 23:00:11") -  БЫЛО unix_timestamp("2014-12-01 22:20:11") >= 172800 - НЕ ТО
- 
+
   //  0.0
   //   --------------------------> Y
   //   |
