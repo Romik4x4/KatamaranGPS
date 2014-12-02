@@ -3,6 +3,7 @@
 // ATMega 1284P (4K Bytes EEPROM)
 ///////////////////////////////////////
 
+
 #include <TinyGPS++.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -18,9 +19,14 @@
 #include <RTClib.h>
 #include <Average.h>
 
+#define DEBUG 1
+
+
 RTC_DS1307 rtc;  // DS1307 RTC Real Time Clock
 
 #define FIVE_MINUT 300000
+
+#define TWO_DAYS 172800
 
 // ------------------------------
 
@@ -133,7 +139,6 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 #define DISPLAY_MENU 1 // Если включен режим Setup()
 #define MAX_MENU     8 // Всего Меню на экране 1-MAX_MENU
 
-#define DEBUG 0
 
 // BOX G218C Chip-Dip
 
@@ -285,6 +290,8 @@ void setup() {
   bmp085_data.Temp  = Temperature*0.1;
   
   start = true; // Для того чтобы вернуть сохраненый дисплай и обновить его.
+  
+  if (DEBUG) bt.println("Debug ON...");
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -320,7 +327,7 @@ void loop() {
   
    if (irrecv.decode(&results)) {
     
-     if (DEBUG) bt.println(results.value);  
+     if (DEBUG) { bt.print("IR Code:"); bt.println(results.value); }
      
      if (results.value == DIS_UP && Display == DISPLAY_MENU) {
        X_Menu--; if (X_Menu == 0) X_Menu = MAX_MENU; 
@@ -463,7 +470,7 @@ void loop() {
    Save_GPS_Pos();  // Save GPS Position
   }
   
-  if(currentMillis - BarSavePreviousInterval > (FIVE_MINUT*4)){ // Каждые 20 минут Save BAR Parameters 
+  if(currentMillis - BarSavePreviousInterval > (FIVE_MINUT)){ // Каждые 20 минут Save BAR Parameters 
    BarSavePreviousInterval = currentMillis;
    Save_Bar_Data(); // Save BMP_085 Data  
   }
@@ -647,8 +654,9 @@ void Read_Data_BMP_EEPROM( void ) {
     bt.print(bmp085_data_out.Temp);       bt.print(";");
     bt.print(bmp085_data_out.unix_time);  bt.print(";");
     bt.print(now.unixtime() - bmp085_data_out.unix_time); bt.print(";");
-    
+
     DateTime eeTime (bmp085_data_out.unix_time);
+
     bt.print(eeTime.year()); bt.print("-");
     bt.print(eeTime.month());bt.print("-");
     bt.print(eeTime.day());
@@ -693,15 +701,17 @@ void Save_Bar_Data( void ) {
   bmp085_data.Alt   = ( bmp085_data.Alt + Altitude/100.0 ) / 2.0;
   bmp085_data.Temp  = ( bmp085_data.Temp + Temperature*0.1 ) / 2.0;
   
-   bmp085_data.unix_time = now.unixtime() - (60 * 60 * UTC);
-
-   BAR_EEPROM_POS = ( (bmp085_data.unix_time/1800)%96 ) * sizeof(bmp085_data); // Номер ячейки памяти.
+   bmp085_data.unix_time = now.unixtime(); // - (60 * 60 * UTC);
    
-   //bt.println(BAR_EEPROM_POS);
-   //bt.println(bmp085_data.unix_time);
-   //bt.println(now.hour());
-   //bt.println(now.minute());   
-   //bt.println("-------");
+   BAR_EEPROM_POS = ( (bmp085_data.unix_time/1800)%96 ) * sizeof(bmp085_data); // Номер ячейки памяти.
+
+   if (DEBUG) {
+    bt.println(BAR_EEPROM_POS);
+    bt.println(bmp085_data.unix_time);
+    bt.println(now.hour());
+    bt.println(now.minute());   
+    bt.println("-------");
+   }
    
    const byte* p = (const byte*)(const void*)&bmp085_data;
    for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
@@ -1268,59 +1278,69 @@ void ShowDataVolt(boolean s) {
 
 void ShowBMP085(boolean s) {
 
- if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || (s == true) ) {  // 300000 == 5 Минут
+ if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || (s == true) ) {  
       barPreviousInterval = currentMillis;      
+
+   DateTime now = rtc.now();    
   
    Average<double> bar_data(96); // Вычисление максимального и минимального значения
    
+   double barArray[96];   
+   
    BAR_EEPROM_POS = 0;
- 
-   while(  BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
-           
+    
+   for(byte j = 0;j < 96; j++) {           
     byte* pp = (byte*)(void*)&bmp085_data_out; 
     for (unsigned int i = 0; i < sizeof(bmp085_data_out); i++)
-     *pp++ = eeprom32.readByte(BAR_EEPROM_POS++);
-    
-    if (bmp085_data_out.Press != 0.0) bar_data.push(bmp085_data_out.Press);
-            
+     *pp++ = eeprom32.readByte(BAR_EEPROM_POS++);    
+    if ((now.unixtime() - bmp085_data_out.unix_time) < TWO_DAYS) {
+     barArray[j] = bmp085_data_out.Press;   
+     if (bmp085_data_out.Press != 0.0) 
+      bar_data.push(bmp085_data_out.Press);
+    } else barArray[j] = 0.0;
    }
 
-  BAR_EEPROM_POS = 0;
+   BAR_EEPROM_POS = 0;
 
-  // x,y x,y две линии по X,Y
-  
-  lcd.setLine(1,30,105,30,WHITE);
-  lcd.setLine(107,0,107,129,WHITE);
+   lcd.setLine(1,30,130,30,WHITE);   // Линия по верикали
+   lcd.setLine(107,0,107,129,WHITE); // Линия по горизонтали
 
-  // Давление     
+   // Давление     
 
-   char f[5];
+   char f[10];
+   
+   dps.getPressure(&Pressure); 
 
    sprintf(f,"%d",(int)bar_data.maximum());
    lcd.setStr(f,0,3,WHITE,BLACK);
+   
+   sprintf(f,"%d",(int)bar_data.mean());    
+   lcd.setStr(f,42,3,GREEN,BLACK);
+   
    sprintf(f,"%d",(int)bar_data.minimum());    
    lcd.setStr(f,85,3,WHITE,BLACK);
+   
+   sprintf(f,"%d",(int)(Pressure/133.3));     
+   lcd.setStr(f,107,3,YELLOW,BLACK);   // Текущие давление
   
-  // Время
+   // Время
   
-  lcd.setChar('0', 122,21, WHITE,BLACK);
-  lcd.setChar('4', 122,32, RED,BLACK);
-  lcd.setChar('8', 122,42+1, WHITE,BLACK);
-  
-  lcd.setChar('1', 122,52+1, RED,BLACK);
-  lcd.setChar('2', 122,62+1, RED,BLACK);
-  
-  lcd.setChar('1', 122,72+2, WHITE,BLACK);
-  lcd.setChar('6', 122,82+2, WHITE,BLACK);
-  
-  lcd.setChar('2', 122,92+4,  RED,BLACK);
-  lcd.setChar('0', 122,102+4, RED,BLACK);
-  
-  lcd.setChar('2', 122,112+6, WHITE,BLACK);
-  lcd.setChar('4', 122,122+6, WHITE,BLACK);
-  
-  unsigned int v_BAR_EEPROM_POS = 0;
-  int address = 0;
+   strcpy(f,"0");
+   lcd.setStr(f,107,33,RED,BLACK);
+   strcpy(f,"23:59");
+   lcd.setStr(f,107,88,GREEN,BLACK);
+    
+   y_pres = 31;
+   
+   for(byte j=0;j<96;j++) {
+    
+    int x = map(barArray[j],bar_data.minimum(),bar_data.maximum(),106,1);  
+
+    lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
+    lcd.setLine(x,y_pres,106,y_pres, WHITE); // Нарисовать данные    
+    y_pres++; if (y_pres > 130) y_pres=31;
+
+   } 
     
  /* while(v_BAR_EEPROM_POS < (EE24LC32MAXBYTES - (sizeof(bmp085_data) +1))) {
       
