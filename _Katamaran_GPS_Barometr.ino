@@ -1328,6 +1328,7 @@ void ShowBMP085(boolean s) {
    lcd.setStr(f,107,3,YELLOW,BLACK);   // Текущие давление
   
    // Время
+   
   
    strcpy(f,"2 Days");
    lcd.setStr(f,107,33,RED,BLACK);
