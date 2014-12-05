@@ -885,14 +885,16 @@ void set_GPS_DateTime() {
   byte minutes =   gps.time.minute();
   byte hours =     gps.time.hour();
   
-  hours = hours + UTC;
-  if (hours > 23)  hours = hours - 24;
+  hours = utc(hours);
   
   byte weekDay =   1;
   byte monthDay =  gps.date.day();
   byte months =    gps.date.month();
   byte years  =    gps.date.year() - 2000;
 
+  rtc.adjust(DateTime(years, months, monthDay, hours, minutes, seconds));
+  
+/*
   Wire.beginTransmission(DS1307_ADDRESS);
   Wire.write(0);
 
@@ -906,11 +908,12 @@ void set_GPS_DateTime() {
 
   Wire.write(0); 
   Wire.endTransmission();
+*/
   
   }
 }
 
-}
+
 
 // ---------------------------------- Отображаем аналоговые часы -----------------------------
 
@@ -919,23 +922,16 @@ void Analog_Time_Clock( void ) {
   if(currentMillis - PreviousInterval > 1000) { 
     PreviousInterval = currentMillis;  
   
-   Wire.beginTransmission(DS1307_ADDRESS);
-   Wire.write(0);
-   Wire.endTransmission();
-   Wire.requestFrom(DS1307_ADDRESS, 7);
-
-   seconds = bcdToDec(Wire.read());
-   minutes = bcdToDec(Wire.read());
-   hours = bcdToDec(Wire.read() & 0b111111); //24 hour time
-  
-   weekDay = bcdToDec(Wire.read()); //0-6 -> sunday - Saturday
-   monthDay = bcdToDec(Wire.read());
-   month = bcdToDec(Wire.read());
-   year = bcdToDec(Wire.read());
-
-   drawClock();
-   displayAnalogTime(hours, minutes, seconds);
-   displayDigitalTime(hours, minutes, seconds);
+    DateTime now = rtc.now();
+    
+    byte seconds = now.second();
+    byte minutes = now.minute();
+    byte hours = now.hour();
+   
+    drawClock();
+   
+    displayAnalogTime(hours, minutes, seconds);
+    displayDigitalTime(hours, minutes, seconds);
 
   }
   
@@ -1023,21 +1019,16 @@ void ShowData(boolean s) {
    strcat(f,output);
    lcd.setStr(f,45,2,WHITE, BLACK);       
    
-   Wire.beginTransmission(DS1307_ADDRESS);
-   Wire.write(0);
-   Wire.endTransmission();
-   Wire.requestFrom(DS1307_ADDRESS, 7);
-
-   seconds = bcdToDec(Wire.read());
-   minutes = bcdToDec(Wire.read());
-   hours = bcdToDec(Wire.read() & 0b111111); //24 hour time
-  
-   weekDay = bcdToDec(Wire.read()); //0-6 -> sunday - Saturday
-   monthDay = bcdToDec(Wire.read());
-   month = bcdToDec(Wire.read());
-   year = bcdToDec(Wire.read());
-   
-   
+   DateTime now = rtc.now();
+    
+   byte seconds = now.second();
+   byte minutes = now.minute();
+   byte hours = now.hour();
+    
+   byte monthDay = now.day();
+   byte month = now.month();
+   byte year = now.year();
+    
    sprintf(output, "%.2d:%.2d:%.2d", hours, minutes, seconds);
    strcpy(f,"Time: ");
    strcat(f,output);
@@ -1144,7 +1135,8 @@ void ShowDataGPS(boolean s) {
 
     if (gps.date.isValid() && gps.time.isValid()) {
             
-      byte h = gps.time.hour()+UTC; if (h > 23)  h = h - 24;
+      byte h = gps.time.hour();
+      h = utc(h);
       
       sprintf(f,"gTime:%.2d:%.2d:%.2d",h,gps.time.minute(),gps.time.second());
       lcd.setStr(f,45,2,WHITE, BLACK);              
@@ -1225,7 +1217,7 @@ void ShowDataSun( boolean s) {
   
   if (gps.date.isValid() && gps.time.isValid()) {
             
-      sprintf(f,"gTime:%.2d:%.2d:%.2d",gps.time.hour()+UTC,gps.time.minute(),gps.time.second());
+      sprintf(f,"gTime:%.2d:%.2d:%.2d",utc(gps.time.hour()),gps.time.minute(),gps.time.second());
       lcd.setStr(f,60+7,2,WHITE, BLACK);              
       sprintf(f,"gDate:%.2d/%.2d/%.2d",gps.date.day(),gps.date.month(),gps.date.year());
       lcd.setStr(f,75+7,2,WHITE, BLACK);        
