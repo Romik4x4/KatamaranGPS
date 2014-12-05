@@ -831,6 +831,10 @@ byte bcdToDec(byte val) {
 
 void setDateTime() {
 
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  
+  /*
+  
   byte second =      00; //0-59
   byte minute =      00; //0-59
   byte hour =        12; //0-23
@@ -852,12 +856,28 @@ void setDateTime() {
 
   Wire.write(0); 
   Wire.endTransmission();
+  
+  */
 
+}
+
+// ---------------------------- Изменить часы на GMT -------------------------------
+
+byte utc(byte In_Hours) {
+  
+  In_Hours = In_Hours + UTC;
+  if (In_Hours > 23)  In_Hours = In_Hours - 24;
+  
+  return(In_Hours);
+  
 }
 
 // ---------------------------- Установка времени через GPS ------------------------
 
 void set_GPS_DateTime() {
+
+  // January 21, 2014 at 3am you would call:
+  // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
   
  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
 
@@ -886,6 +906,8 @@ void set_GPS_DateTime() {
 
   Wire.write(0); 
   Wire.endTransmission();
+  
+  }
 }
 
 }
@@ -1328,25 +1350,31 @@ void ShowBMP085(boolean s) {
    lcd.setStr(f,107,3,YELLOW,BLACK);   // Текущие давление
   
    // Время
-   
-  
+     
    strcpy(f,"2 Days");
    lcd.setStr(f,107,33,RED,BLACK);
    sprintf(f,"%.2d:%.2d",now.hour(),now.minute());
    lcd.setStr(f,107,88,GREEN,BLACK);
     
-   y_pres = 31;
+   y_pres = 127;
+   
+   byte current_position = (now.unixtime()/1800)%96;
    
    for(byte j=0;j<96;j++) {
     
-    int x = map(barArray[j],bar_data.minimum(),bar_data.maximum(),106,1);  
+    int x = map(barArray[current_position],bar_data.minimum(),bar_data.maximum(),106,1);  
 
-    if (barArray[j] != 0.0) {
-     lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
+    lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
+     
+    if (barArray[current_position] != 0.0) {     
      lcd.setLine(x,y_pres,106,y_pres, WHITE); // Нарисовать данные    
     }
     
-    y_pres++; if (y_pres > 130) y_pres=31;
+    if (current_position == 0) current_position = 95;
+    
+    current_position--; 
+    
+    y_pres--;
 
    } 
   
