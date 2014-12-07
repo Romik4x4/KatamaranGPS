@@ -138,7 +138,6 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 #define DISPLAY_MENU 1 // Если включен режим Setup()
 #define MAX_MENU     8 // Всего Меню на экране 1-MAX_MENU
 
-
 // BOX G218C Chip-Dip
 
 ////////////////////////////////////////////
@@ -504,6 +503,7 @@ void Save_GPS_Pos( void ) {
   unsigned long GPS_EEPROM_POS;
 
  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+   if (gps.location.isUpdated()) {
   
   EEPROM_readAnything(0, configuration); // Чтения конфигурации
   
@@ -533,7 +533,8 @@ void Save_GPS_Pos( void ) {
      
      EEPROM_writeAnything(0, configuration);
 
-   } // if GPS is OK ONLY
+   } // if GPS is Updated
+  } // if GPS is OK
 }
 // --------------------------- GPS Track Output --------------------------------------------------
 
