@@ -4,6 +4,16 @@
 // ATMega 1284P (4K Bytes EEPROM)
 ///////////////////////////////////////
 
+
+  //  0.0
+  //   --------------------------> Y
+  //   |
+  //   |
+  //   |
+  //   v
+  //   X
+  
+
 #include <TinyGPS++.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -32,10 +42,6 @@ RTC_DS1307 rtc;  // DS1307 RTC Real Time Clock
 int y_volts = 15;
 
 unsigned long X_Menu = 1;  // Keyboard for Setup
-
-int y_pres = 15; // Позиция вывода а также позиция для EEPROM
-
-boolean bar_color = true;
 
 unsigned int BAR_EEPROM_POS = 0;
 
@@ -1350,7 +1356,7 @@ void ShowBMP085(boolean s) {
    sprintf(f,"%.2d:%.2d",now.hour(),now.minute());
    lcd.setStr(f,107,88,GREEN,BLACK);
     
-   y_pres = 127;
+   int y_pres = 127;
    
    byte current_position = (now.unixtime()/1800)%96;
    
@@ -1372,14 +1378,88 @@ void ShowBMP085(boolean s) {
 
    } 
   
+  }  
+  
+}
 
-  //  0.0
-  //   --------------------------> Y
-  //   |
-  //   |
-  //   |
-  //   v
-  //   X
+
+// ---------------- Temperature Graphics ------------------------
+
+void ShowBMP085Temp(boolean s) {
+
+ if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || (s == true) ) {  
+      barPreviousInterval = currentMillis;      
+
+   DateTime now = rtc.now();    
+  
+   Average<double> temp_data(96); // Вычисление максимального и минимального значения
+   
+   double tempArray[96];   
+   
+   BAR_EEPROM_POS = 0;
+    
+   for(byte j = 0;j < 96; j++) {           
+    byte* pp = (byte*)(void*)&bmp085_data_out; 
+    for (unsigned int i = 0; i < sizeof(bmp085_data_out); i++)
+     *pp++ = eeprom32.readByte(BAR_EEPROM_POS++);    
+    if ((now.unixtime() - bmp085_data_out.unix_time) < TWO_DAYS) {
+     tempArray[j] = bmp085_data_out.Temp;   
+     temp_data.push(bmp085_data_out.Temp);
+    } else tempArray[j] = 0.0;
+    if (DEBUG) bt.println(tempArray[j]);
+   }
+
+   BAR_EEPROM_POS = 0;
+
+   lcd.setLine(1,30,130,30,WHITE);   // Линия по верикали
+   lcd.setLine(107,0,107,129,WHITE); // Линия по горизонтали
+
+   // Давление     
+
+   char f[10];
+   
+   dps.getTemperature(&Temperature); // Текущие значение температуры
+
+   sprintf(f,"%d",(int)temp_data.maximum());
+   lcd.setStr(f,0,3,WHITE,BLACK);
+   
+   sprintf(f,"%d",(int)temp_data.mean());    
+   lcd.setStr(f,42,3,GREEN,BLACK);
+   
+   sprintf(f,"%d",(int)temp_data.minimum());    
+   lcd.setStr(f,85,3,WHITE,BLACK);
+   
+   sprintf(f,"%d",(int)(Temperature*0.1));     
+   lcd.setStr(f,107,3,YELLOW,BLACK);   // Текущие значение температуры
+  
+   // Время
+     
+   strcpy(f,"2 Days");
+   lcd.setStr(f,107,33,RED,BLACK);
+   sprintf(f,"%.2d:%.2d",now.hour(),now.minute());
+   lcd.setStr(f,107,88,GREEN,BLACK);
+    
+   int y_temp = 127;
+   
+   byte current_position = (now.unixtime()/1800)%96;
+   
+   for(byte j=0;j<96;j++) {
+    
+    int x = map(tempArray[current_position],temp_data.minimum(),temp_data.maximum(),106,1);  
+
+    lcd.setLine(0,y_temp,106,y_temp, BLACK); // Стереть линию
+     
+    if (tempArray[current_position] != 0.0) {     
+     lcd.setLine(x,y_temp,106,y_temp, WHITE); // Нарисовать данные    
+    }
+    
+    if (current_position == 0) current_position = 95;
+    
+    current_position--; 
+    
+    y_temp--;
+
+   } 
   
   }  
   
