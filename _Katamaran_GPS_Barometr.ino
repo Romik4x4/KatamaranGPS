@@ -652,8 +652,9 @@ void Read_Data_BMP_EEPROM( void ) {
      *pp++ = eeprom32.readByte(BAR_EEPROM_POS++);
     
     if (bmp085_data_out.Press != 0.0) bar_data.push(bmp085_data_out.Press);
-    if (bmp085_data_out.Alt   != 0.0) alt_data.push(bmp085_data_out.Alt);
-    if (bmp085_data_out.Temp  != 0.0) tem_data.push(bmp085_data_out.Temp);         
+    
+    // if (bmp085_data_out.Alt   != 0.0) alt_data.push(bmp085_data_out.Alt);
+    // if (bmp085_data_out.Temp  != 0.0) tem_data.push(bmp085_data_out.Temp);         
     
     bt.print(bmp085_data_out.Press);      bt.print(";");
     bt.print(bmp085_data_out.Alt);        bt.print(";");
@@ -1315,9 +1316,12 @@ void ShowBMP085(boolean s) {
    BAR_EEPROM_POS = 0;
     
    for(byte j = 0;j < 96; j++) {           
-    byte* pp = (byte*)(void*)&bmp085_data_out; 
+  
+     byte* pp = (byte*)(void*)&bmp085_data_out; 
+  
     for (unsigned int i = 0; i < sizeof(bmp085_data_out); i++)
-     *pp++ = eeprom32.readByte(BAR_EEPROM_POS++);    
+     *pp++ = eeprom32.readByte(BAR_EEPROM_POS++); 
+     
     if ((now.unixtime() - bmp085_data_out.unix_time) < TWO_DAYS) {
      barArray[j] = bmp085_data_out.Press;   
      if (bmp085_data_out.Press != 0.0) 
@@ -1334,6 +1338,7 @@ void ShowBMP085(boolean s) {
    // Давление     
 
    char f[10];
+   int x;
    
    dps.getPressure(&Pressure); 
 
@@ -1358,11 +1363,12 @@ void ShowBMP085(boolean s) {
     
    int y_pres = 127;
    
-   byte current_position = (now.unixtime()/1800)%96;
-   
-   for(byte j=0;j<96;j++) {
+   byte current_position = (now.unixtime()/1800)%96; 
     
-    int x = map(barArray[current_position],bar_data.minimum(),bar_data.maximum(),106,1);  
+   for(byte j=0;j<96;j++) {
+     
+    if (j != 0) x = map(barArray[current_position],bar_data.minimum(),bar_data.maximum(),106,1);  
+    else x = map(Pressure/133.3,bar_data.minimum(),bar_data.maximum(),106,1); // Текущие значение
 
     lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
      
@@ -1417,6 +1423,7 @@ void ShowBMP085Temp(boolean s) {
    // Давление     
 
    char f[10];
+   int x;
    
    dps.getTemperature(&Temperature); // Текущие значение температуры
 
@@ -1445,7 +1452,8 @@ void ShowBMP085Temp(boolean s) {
    
    for(byte j=0;j<96;j++) {
     
-    int x = map(tempArray[current_position],temp_data.minimum(),temp_data.maximum(),106,1);  
+    if (j != 0) x = map(tempArray[current_position],temp_data.minimum(),temp_data.maximum(),106,1);  
+    else x = map(Temperature*0.1,temp_data.minimum(),temp_data.maximum(),106,1);
 
     lcd.setLine(0,y_temp,106,y_temp, BLACK); // Стереть линию
      
