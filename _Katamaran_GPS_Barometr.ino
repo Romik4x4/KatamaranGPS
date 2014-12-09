@@ -4,7 +4,6 @@
 // ATMega 1284P (4K Bytes EEPROM)
 ///////////////////////////////////////
 
-
   //  0.0
   //   --------------------------> Y
   //   |
@@ -13,7 +12,6 @@
   //   v
   //   X
   
-
 #include <TinyGPS++.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
