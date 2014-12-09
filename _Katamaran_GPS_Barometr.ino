@@ -39,7 +39,7 @@ RTC_DS1307 rtc;  // DS1307 RTC Real Time Clock
 
 int y_volts = 15;
 
-unsigned long X_Menu = 1;  // Keyboard for Setup
+byte X_Menu = 1;  // Keyboard for SetupMenu
 
 unsigned int BAR_EEPROM_POS = 0;
 
@@ -92,6 +92,8 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 #define DISPLAY_8 16730805 // 8 Barometer
 #define DISPLAY_9 16732845 // 9 GPS Output if BT is connected
 
+#define DISPLAY_10 10000001 // Температура
+
 #define DOWN   1
 #define UP     2
 #define LEFT   3
@@ -139,8 +141,11 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 #define CONTRAST_DW 16754775 // -
 
 #define DISPLAY_NONE 0 // Не обновляем экран
-#define DISPLAY_MENU 1 // Если включен режим Setup()
-#define MAX_MENU     8 // Всего Меню на экране 1-MAX_MENU
+
+#define DISPLAY_MENU 1 // Если включен режим SetupMenu()
+
+#define MAX_MENU     9 // Всего Меню на экране 1-MAX_MENU
+#define MAX_DISPLAY  8
 
 // BOX G218C Chip-Dip
 
@@ -318,12 +323,14 @@ void loop() {
   }
 
    if (Display == DISPLAY_1) Analog_Time_Clock();
-   if (Display == DISPLAY_2) Setup();
+   if (Display == DISPLAY_2) SetupMenu();
    if (Display == DISPLAY_3) ShowData(start);
    if (Display == DISPLAY_4) ShowDataGPS(start);
    if (Display == DISPLAY_5) ShowDataSun(start);
    if (Display == DISPLAY_6) ShowDataVolt(start);
    if (Display == DISPLAY_8) ShowBMP085(start);
+   
+   if (Display == DISPLAY_10) ShowBMP085Temp(start);   
    
    start = false; // Если была перегрузка, чтобы не перересовывать всю графику
   
@@ -331,17 +338,17 @@ void loop() {
     
      if (DEBUG) { bt.print("IR Code:"); bt.println(results.value); }
      
-     if (results.value == DIS_UP && Display == DISPLAY_MENU) {
+     if (results.value == DIS_UP && Display == DISPLAY_MENU) { // Вниз
        X_Menu--; if (X_Menu == 0) X_Menu = MAX_MENU; 
-       Setup(); 
+       SetupMenu(); 
      }
      
-     if (results.value == DIS_DOWN && Display == DISPLAY_MENU) {
+     if (results.value == DIS_DOWN && Display == DISPLAY_MENU) { // Вверх
        X_Menu++; if (X_Menu > MAX_MENU) X_Menu=1; 
-       Setup(); 
+       SetupMenu(); 
      }
      
-     if (results.value == DIS_ENTER && Display == DISPLAY_MENU) {
+     if (results.value == DIS_ENTER && Display == DISPLAY_MENU) { // Нажали ENTER
       switch (X_Menu) {      
        case 1: results.value = DISPLAY_1; break;
        case 2: results.value = DISPLAY_6; break;
@@ -349,7 +356,7 @@ void loop() {
        case 4: results.value = DISPLAY_4; break;
        case 5: results.value = DISPLAY_5; break;
        case 6: results.value = DISPLAY_7; break;
-       case 7: results.value = DISPLAY_8; break;
+       case 7: results.value = DISPLAY_8; break;       
        case 8: if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true; results.value = DISPLAY_2; break;
       }
      }  
@@ -1068,14 +1075,15 @@ void ShowData(boolean s) {
 
 // ------------------------ Setup Menu ----------------------------------
 
-void Setup( void ) {
+void SetupMenu( void ) {
   
-  char f[20];
+  char f[9][20];
+  byte pos = 0;
   
-  unsigned int text[8];
-  unsigned int   bg[8];
+  unsigned int text[MAX_MENU];
+  unsigned int   bg[MAX_MENU];
   
-  for(byte i=0;i<8;i++) {
+  for(byte i=0;i<MAX_MENU;i++) {
     text[i] = WHITE;
     bg[i] = BLACK;
   }
@@ -1083,18 +1091,27 @@ void Setup( void ) {
   text[X_Menu-1] = BLACK; 
     bg[X_Menu-1] = WHITE;
   
-   strcpy(f,"1.Analog Clock");    lcd.setStr(f, 1, 10,text[0],bg[0]);   
-   strcpy(f,"2.Voltmete");        lcd.setStr(f,15, 10,text[1],bg[1]);
-   strcpy(f,"3.BMP/GPS Data");    lcd.setStr(f,30, 10,text[2],bg[2]);
-   strcpy(f,"4.GPS Data");        lcd.setStr(f,45, 10,text[3],bg[3]);
-   strcpy(f,"5.Sun Set/Rise");    lcd.setStr(f,60, 10,text[4],bg[4]);
-   strcpy(f,"6.GPX Track Out");   lcd.setStr(f,75, 10,text[5],bg[5]);
-   strcpy(f,"7.Barometer");       lcd.setStr(f,90, 10,text[6],bg[6]);
-   if (GPS_OUT) {
-    strcpy(f,"8.GPS NMEA ");      lcd.setStr(f,105,10,WHITE,RED);
-   } else {
-    strcpy(f,"8.GPS NMEA ");      lcd.setStr(f,105,10,text[7],bg[7]);
-   }     
+   strcpy(f[0],"1.Analog Clock ");      
+   strcpy(f[1],"2.Voltmete     ");   
+   strcpy(f[2],"3.BMP/GPS Data ");   
+   strcpy(f[3],"4.GPS Data     ");   
+   strcpy(f[4],"5.Sun Set/Rise ");   
+   strcpy(f[5],"6.GPX Track Out");   
+   strcpy(f[6],"7.Barometer    ");   
+   strcpy(f[7],"8.GPS NMEA     ");
+   strcpy(f[8],"9.Temperature  ");
+   
+   if (X_Menu < MAX_DISPLAY) pos = 0; else pos = 8;
+   
+   for(byte j=0;j<MAX_MENU;j++) {
+     
+     if (GPS_OUT && j == 7)
+      lcd.setStr(f[pos],j*15,10,WHITE,RED);
+     else 
+      lcd.setStr(f[pos], j*15, 10,text[0],bg[0]);
+      
+      pos++;
+   }
 
    Display = DISPLAY_MENU; 
 
