@@ -332,8 +332,9 @@ void loop() {
    if (Display == DISPLAY_6) ShowDataVolt(start);
    if (Display == DISPLAY_8) ShowBMP085(start);
    
-   if (Display == DISPLAY_10) ShowBMP085Temp(start);   
-   
+   if (Display == DISPLAY_10) ShowBMP085Temp(start); 
+   if (Display == DISPLAY_11) ShowBMP085Alt(start); 
+      
    start = false; // Если была перегрузка, чтобы не перересовывать всю графику
   
    if (irrecv.decode(&results)) {
@@ -451,11 +452,19 @@ void loop() {
       break;
 
      case DISPLAY_10:
-      Display = DISPLAY_8;
+      Display = DISPLAY_10;
       configuration.Display = DISPLAY_10;
       EEPROM_writeAnything(0, configuration);
       lcd.clear(BLACK);
       ShowBMP085Temp(true);
+      break;
+
+     case DISPLAY_11:
+      Display = DISPLAY_11;
+      configuration.Display = DISPLAY_11;
+      EEPROM_writeAnything(0, configuration);
+      lcd.clear(BLACK);
+      ShowBMP085Alt(true);
       break;
       
      case CONTRAST_DW:
@@ -671,8 +680,8 @@ void Read_Data_BMP_EEPROM( void ) {
     
     if (bmp085_data_out.Press != 0.0) bar_data.push(bmp085_data_out.Press);
     
-    // if (bmp085_data_out.Alt   != 0.0) alt_data.push(bmp085_data_out.Alt);
-    // if (bmp085_data_out.Temp  != 0.0) tem_data.push(bmp085_data_out.Temp);         
+     alt_data.push(bmp085_data_out.Alt);
+     tem_data.push(bmp085_data_out.Temp);         
     
     bt.print(bmp085_data_out.Press);      bt.print(";");
     bt.print(bmp085_data_out.Alt);        bt.print(";");
@@ -1118,7 +1127,7 @@ void SetupMenu( void ) {
    
    if (X_Menu > MAX_DISPLAY) { pos = round(X_Menu / MAX_DISPLAY) * MAX_DISPLAY; lcd.clear(BLACK); }
    
-   bt.println(pos);
+   if (DEBUG) { bt.print("Menu Position:"); bt.println(pos); }
    
    for(byte j=0;j<MAX_DISPLAY;j++) {
      
@@ -1508,4 +1517,88 @@ void ShowBMP085Temp(boolean s) {
   
 }
 
+
+// ---------------- Altimetr Graphics ------------------------
+
+void ShowBMP085Alt(boolean s) {
+
+ if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || (s == true) ) {  
+      barPreviousInterval = currentMillis;      
+
+   DateTime now = rtc.now();    
+  
+   Average<double> alt_data(96); // Вычисление максимального и минимального значения
+   
+   double altArray[96];   
+   
+   BAR_EEPROM_POS = 0;
+    
+   for(byte j = 0;j < 96; j++) {           
+    byte* pp = (byte*)(void*)&bmp085_data_out; 
+    for (unsigned int i = 0; i < sizeof(bmp085_data_out); i++)
+     *pp++ = eeprom32.readByte(BAR_EEPROM_POS++);    
+    if ((now.unixtime() - bmp085_data_out.unix_time) < TWO_DAYS) {
+     altArray[j] = bmp085_data_out.Alt;   
+     alt_data.push(bmp085_data_out.Alt);
+    } else altArray[j] = 0.0;
+    if (DEBUG) bt.println(altArray[j]);
+   }
+
+   BAR_EEPROM_POS = 0;
+
+   lcd.setLine(1,30,130,30,WHITE);   // Линия по верикали
+   lcd.setLine(107,0,107,129,WHITE); // Линия по горизонтали
+
+   // Давление     
+
+   char f[10];
+   int x;
+   
+   dps.getAltitude(&Altitude); // Текущие значение Высоты
+
+   sprintf(f,"%d",(int)alt_data.maximum());
+   lcd.setStr(f,0,3,WHITE,BLACK);
+   
+   sprintf(f,"%d",(int)alt_data.mean());    
+   lcd.setStr(f,42,3,GREEN,BLACK);
+   
+   sprintf(f,"%d",(int)alt_data.minimum());    
+   lcd.setStr(f,85,3,WHITE,BLACK);
+   
+   sprintf(f,"%d",(int)(Altitude/100.0));     
+   lcd.setStr(f,107,3,YELLOW,BLACK);   // Текущие значение температуры
+  
+   // Время
+     
+   strcpy(f,"2 Days");
+   lcd.setStr(f,107,33,RED,BLACK);
+   sprintf(f,"%.2d:%.2d",now.hour(),now.minute());
+   lcd.setStr(f,107,88,GREEN,BLACK);
+    
+   int y_alt = 127;
+   
+   byte current_position = (now.unixtime()/1800)%96;
+   
+   for(byte j=0;j<96;j++) {
+    
+    if (j != 0) x = map(altArray[current_position],alt_data.minimum(),alt_data.maximum(),106,1);  
+    else x = map(Altitude/100.0,alt_data.minimum(),alt_data.maximum(),106,1);
+
+    lcd.setLine(0,y_alt,106,y_alt, BLACK); // Стереть линию
+     
+    if (altArray[current_position] != 0.0) {     
+     lcd.setLine(x,y_alt,106,y_alt, WHITE); // Нарисовать данные    
+    }
+    
+    if (current_position == 0) current_position = 95;
+    
+    current_position--; 
+    
+    y_alt--;
+
+   } 
+  
+  }  
+  
+}
 
