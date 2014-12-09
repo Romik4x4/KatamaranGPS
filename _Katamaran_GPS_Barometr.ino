@@ -144,8 +144,8 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 
 #define DISPLAY_MENU 1 // Если включен режим SetupMenu()
 
-#define MAX_MENU     9 // Всего Меню на экране 1-MAX_MENU
-#define MAX_DISPLAY  8
+#define MAX_MENU     10 // Всего Меню на экране 1-MAX_MENU
+#define MAX_DISPLAY  8 // Максимальое количество меню на экране
 
 // BOX G218C Chip-Dip
 
@@ -1077,8 +1077,9 @@ void ShowData(boolean s) {
 
 void SetupMenu( void ) {
   
-  char f[9][20];
+  char f[MAX_MENU][20];
   byte pos = 0;
+  byte y = 0;
   
   unsigned int text[MAX_MENU];
   unsigned int   bg[MAX_MENU];
@@ -1100,17 +1101,23 @@ void SetupMenu( void ) {
    strcpy(f[6],"7.Barometer    ");   
    strcpy(f[7],"8.GPS NMEA     ");
    strcpy(f[8],"9.Temperature  ");
+   strcpy(f[9],"A.Altimeter    ");
    
-   if (X_Menu < MAX_DISPLAY) pos = 0; else pos = 8;
+   if (X_Menu > MAX_DISPLAY) { pos = round(X_Menu / MAX_DISPLAY) * MAX_DISPLAY; lcd.clear(BLACK); }
    
-   for(byte j=0;j<MAX_MENU;j++) {
+   bt.println(pos);
+   
+   for(byte j=0;j<MAX_DISPLAY;j++) {
      
-     if (GPS_OUT && j == 7)
-      lcd.setStr(f[pos],j*15,10,WHITE,RED);
+     if (pos > MAX_MENU-1) break;
+     
+     if (GPS_OUT && pos == 7) // Только для просмотра что влючено NMEA OUTPUT
+      lcd.setStr(f[pos],y*15,10,WHITE,RED);
      else 
-      lcd.setStr(f[pos], j*15, 10,text[0],bg[0]);
-      
+      lcd.setStr(f[pos], y*15, 10,text[pos],bg[pos]);
       pos++;
+      y++;
+     
    }
 
    Display = DISPLAY_MENU; 
