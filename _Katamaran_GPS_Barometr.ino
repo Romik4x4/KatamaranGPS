@@ -83,7 +83,7 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 //---------------- IR Кнопки --------------------------
 
 #define DISPLAY_1 16724175 // 1 Analog Clock
-#define DISPLAY_2 16718055 // 2 Draw
+#define DISPLAY_2 16718055 // 2 SetupMenu()
 #define DISPLAY_3 16743045 // 3 Date,Battary,Barametr and etc.
 #define DISPLAY_4 16716015 // 4 GPS Info
 #define DISPLAY_5 16726215 // 5 SunRise and SunSet
@@ -93,6 +93,8 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 #define DISPLAY_9 16732845 // 9 GPS Output if BT is connected
 
 #define DISPLAY_10 10000001 // Температура
+#define DISPLAY_11 10000002 // Алтиметр
+
 
 #define DOWN   1
 #define UP     2
@@ -358,6 +360,9 @@ void loop() {
        case 6: results.value = DISPLAY_7; break;
        case 7: results.value = DISPLAY_8; break;       
        case 8: if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true; results.value = DISPLAY_2; break;
+       case 9:  results.value = DISPLAY_10; break;
+       case 10: results.value = DISPLAY_11; break;
+
       }
      }  
           
@@ -443,6 +448,14 @@ void loop() {
       EEPROM_writeAnything(0, configuration);
       lcd.clear(BLACK);
       ShowBMP085(true);
+      break;
+
+     case DISPLAY_10:
+      Display = DISPLAY_8;
+      configuration.Display = DISPLAY_10;
+      EEPROM_writeAnything(0, configuration);
+      lcd.clear(BLACK);
+      ShowBMP085Temp(true);
       break;
       
      case CONTRAST_DW:
