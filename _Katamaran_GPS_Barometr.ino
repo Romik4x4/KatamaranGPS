@@ -799,17 +799,23 @@ float battary( void ) {
 
 // --------------------------------------------- Функция для Аналоговых часов --------------------
 
-void displayDigitalTime(int h, int m, int s)
+void displayDigitalTime(byte h, byte m, byte s, byte d,byte mo,int ye)
 {
     char timeChar[12];
   
     sprintf(timeChar, "%.2d:%.2d:%.2d", h, m, s);
-    lcd.setStr(timeChar, CLOCK_CENTER + CLOCK_RADIUS + 10, 25, C_COLOR, BACKGROUND);
+    lcd.setStr(timeChar,105,5, C_COLOR, BACKGROUND);
+    sprintf(timeChar, "%.2d/%.2d", d, mo);
+    lcd.setStr(timeChar,105,79, C_COLOR, BACKGROUND);
 }
 
 void drawClock()
 {
-  lcd.setCircle(CLOCK_CENTER, 66, CLOCK_RADIUS, C_COLOR);
+
+  lcd.setCircle(CLOCK_CENTER, 66, CLOCK_RADIUS,   C_COLOR);
+  lcd.setCircle(CLOCK_CENTER, 66, CLOCK_RADIUS+1, C_COLOR);
+  lcd.setCircle(CLOCK_CENTER, 66, CLOCK_RADIUS+2, C_COLOR);
+  
   lcd.setStr("12", CLOCK_CENTER - CLOCK_RADIUS, 66-9, C_COLOR, BACKGROUND);
   lcd.setStr("3", CLOCK_CENTER - 9, 66 + CLOCK_RADIUS - 12, C_COLOR, BACKGROUND);
   lcd.setStr("6", CLOCK_CENTER + CLOCK_RADIUS - 18, 66-4, C_COLOR, BACKGROUND);
@@ -967,8 +973,8 @@ void Analog_Time_Clock( void ) {
     drawClock();
    
     displayAnalogTime(hours, minutes, seconds);
-    displayDigitalTime(hours, minutes, seconds);
-
+    displayDigitalTime(hours, minutes, seconds, now.day(),now.month(),now.year());
+    
   }
   
 }
