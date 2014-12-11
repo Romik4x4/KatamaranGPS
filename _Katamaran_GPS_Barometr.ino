@@ -701,6 +701,15 @@ void Read_Data_BMP_EEPROM( void ) {
     bt.print(eeTime.minute());bt.print(":");
     bt.print(eeTime.second());
     
+    
+    bt.print(" MAP: ");
+    bt.print(map(bmp085_data_out.Press,bar_data.minimum(),bar_data.maximum(),106,1));
+    bt.print(" ");
+    bt.print(map(bmp085_data_out.Alt  ,alt_data.minimum(),alt_data.maximum(),106,1));
+    bt.print(" ");
+    bt.print(map(bmp085_data_out.Temp ,tem_data.minimum(),tem_data.maximum(),106,1));
+    
+    
     bt.println();
           
    }
