@@ -942,9 +942,8 @@ void set_GPS_DateTime() {
   byte weekDay =   1;
   byte monthDay =  gps.date.day();
   byte months =    gps.date.month();
-  unsigned int years  =  gps.date.year();
 
-  rtc.adjust(DateTime(years, months, monthDay, hours, minutes, seconds));
+  rtc.adjust(DateTime(gps.date.year(), months, monthDay, hours, minutes, seconds));
   
 /*
   Wire.beginTransmission(DS1307_ADDRESS);
@@ -1079,14 +1078,13 @@ void ShowData(boolean s) {
     
    byte monthDay = now.day();
    byte month = now.month();
-   byte year = now.year();
     
    sprintf(output, "%.2d:%.2d:%.2d", hours, minutes, seconds);
    strcpy(f,"Time: ");
    strcat(f,output);
    lcd.setStr(f,60,2,WHITE, BLACK);       
 
-   sprintf(output, "%.2d/%.2d/%.2d", monthDay, month, year);
+   sprintf(output,"%.2d/%.2d/%.4d", monthDay, month, now.year());
    strcpy(f,"Date: ");
    strcat(f,output);
    lcd.setStr(f,75,2,WHITE, BLACK);       
