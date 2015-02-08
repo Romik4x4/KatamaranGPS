@@ -942,7 +942,7 @@ void set_GPS_DateTime() {
   byte weekDay =   1;
   byte monthDay =  gps.date.day();
   byte months =    gps.date.month();
-  byte years  =    gps.date.year() - 2000;
+  unsigned int years  =  gps.date.year();
 
   rtc.adjust(DateTime(years, months, monthDay, hours, minutes, seconds));
   
@@ -1383,10 +1383,15 @@ void ShowBMP085(boolean s) {
      *pp++ = eeprom32.readByte(BAR_EEPROM_POS++); 
      
     if ((now.unixtime() - bmp085_data_out.unix_time) < TWO_DAYS) {
-     barArray[j] = bmp085_data_out.Press;   
-     if (bmp085_data_out.Press != 0.0) 
-      bar_data.push(bmp085_data_out.Press);
-    } else barArray[j] = 0.0;
+   
+       barArray[j] = bmp085_data_out.Press; 
+       bar_data.push(bmp085_data_out.Press);
+     
+    } else {
+      
+       barArray[j] = 0.0;
+    }
+    
     if (DEBUG) bt.println(barArray[j]);
    }
 
@@ -1436,7 +1441,7 @@ void ShowBMP085(boolean s) {
      lcd.setLine(x,y_pres,106,y_pres, WHITE); // Нарисовать данные    
     }
     
-    if (current_position == 0) current_position = 95;
+    if (current_position == 0) current_position = 96;
     
     current_position--; 
     
@@ -1521,7 +1526,7 @@ void ShowBMP085Temp(boolean s) {
      lcd.setLine(x,y_temp,106,y_temp, WHITE); // Нарисовать данные    
     }
     
-    if (current_position == 0) current_position = 95;
+    if (current_position == 0) current_position = 96;
     
     current_position--; 
     
@@ -1606,7 +1611,7 @@ void ShowBMP085Alt(boolean s) {
      lcd.setLine(x,y_alt,106,y_alt, WHITE); // Нарисовать данные    
     }
     
-    if (current_position == 0) current_position = 95;
+    if (current_position == 0) current_position = 96;
     
     current_position--; 
     
