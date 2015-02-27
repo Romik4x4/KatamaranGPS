@@ -42,7 +42,7 @@ int y_volts = 15;
 
 byte X_Menu = 1;  // Keyboard for SetupMenu
 
-unsigned int BAR_EEPROM_POS = 0;
+unsigned long BAR_EEPROM_POS = 0;
 
 // -------------------------------
 
@@ -167,10 +167,10 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 #define BMP085_ADDRESS  0x77 // BMP085
 #define DS1307_ADDRESS  0x68 // DS1307
 
-#define EE24LC32MAXBYTES  32768/8
+#define EE24LC32MAXBYTES   32768/8
 #define EE24LC256MAXBYTES 262144/8
 
-I2C_eeprom eeprom32(EEPROM_ADDRESS_32  ,EE24LC32MAXBYTES);
+I2C_eeprom  eeprom32(EEPROM_ADDRESS_32 ,EE24LC32MAXBYTES);
 I2C_eeprom eeprom256(EEPROM_ADDRESS_256,EE24LC256MAXBYTES);
 
 // ee.writeByte(Address, Data); readByte(Address);
@@ -512,22 +512,30 @@ void loop() {
    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid())
      rtc.writeSqwPinMode(OFF);             // Выключаем синий светодиод на DS1307
      set_GPS_DateTime();
-     rtc.writeSqwPinMode(SquareWave1HZ); // Включаем синий светодиод на DS1307
+     rtc.writeSqwPinMode(SquareWave1HZ);   // Включаем синий светодиод на DS1307
   }
    
-   if (Serial1.available()) {
+   if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) {
+    if (Serial1.available()) {
      char nmea = Serial1.read();
      gps.encode(nmea);
      if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);  
+    }
    }
     
+ if (GPS_OUT) {  
   if(currentMillis - gps_out_pi > 250) {    
    gps_out_pi = currentMillis;  
-   if (GPS_OUT) {
-   if (GPS_OUT_LED) {  digitalWrite(CPU_LED,HIGH); GPS_OUT_LED = false; } 
-   else { digitalWrite(CPU_LED,LOW); GPS_OUT_LED = true; }
+   if (GPS_OUT_LED) {  
+    digitalWrite(CPU_LED,HIGH); 
+    GPS_OUT_LED = false; 
+   } else { 
+    digitalWrite(CPU_LED,LOW); 
+    GPS_OUT_LED = true; 
    }
   }
+ }
+ 
 }
 
 // --------------------------- GPS SAVE POS FOR GPS TRACKER --------------------------------------
@@ -689,6 +697,7 @@ void Read_Data_BMP_EEPROM( void ) {
     bt.print(bmp085_data_out.Temp);       bt.print(";");
     bt.print(bmp085_data_out.unix_time);  bt.print(";");
     bt.print(now.unixtime() - bmp085_data_out.unix_time); bt.print(";");
+    bt.print(now.unixtime()); bt.print(";");    
 
     DateTime eeTime (bmp085_data_out.unix_time);
 
@@ -743,13 +752,13 @@ void Save_Bar_Data( void ) {
   dps.getTemperature(&Temperature);  // Температура
    
   DateTime now = rtc.now();
-       
-  bmp085_data.Press = ( bmp085_data.Press + Pressure/133.3 ) / 2.0;
-  bmp085_data.Alt   = ( bmp085_data.Alt + Altitude/100.0 ) / 2.0;
-  bmp085_data.Temp  = ( bmp085_data.Temp + Temperature*0.1 ) / 2.0;
   
-   bmp085_data.unix_time = now.unixtime(); // - (60 * 60 * UTC);
-   
+  bmp085_data.unix_time = now.unixtime(); // - (60 * 60 * UTC);
+       
+   bmp085_data.Press = ( bmp085_data.Press + Pressure/133.3 ) / 2.0;
+   bmp085_data.Alt   = ( bmp085_data.Alt + Altitude/100.0 ) / 2.0;
+   bmp085_data.Temp  = ( bmp085_data.Temp + Temperature*0.1 ) / 2.0;
+     
    BAR_EEPROM_POS = ( (bmp085_data.unix_time/1800)%96 ) * sizeof(bmp085_data); // Номер ячейки памяти.
 
    if (DEBUG) {
@@ -1388,10 +1397,18 @@ void ShowBMP085(boolean s) {
     } else {
       
        barArray[j] = 0.0;
+ 
     }
     
-    if (DEBUG) bt.println(barArray[j]);
+     if (DEBUG) {
+        bt.print(now.unixtime() - bmp085_data_out.unix_time);  // Debug
+        bt.print(" -- ");                                      // Debug
+        bt.println(barArray[j]);                               // DEBUG
+      }
    }
+
+       if (DEBUG) bt.println("-------------------");  // DEBUG
+        
 
    BAR_EEPROM_POS = 0;
 
@@ -1430,8 +1447,11 @@ void ShowBMP085(boolean s) {
     
    for(byte j=0;j<96;j++) {
      
-    if (j != 0) x = map(barArray[current_position],bar_data.minimum(),bar_data.maximum(),106,1);  
-    else x = map(Pressure/133.3,bar_data.minimum(),bar_data.maximum(),106,1); // Текущие значение
+    if (j != 0) {
+     x = map(barArray[current_position],bar_data.minimum(),bar_data.maximum(),106,1);
+    } else {
+     x = map(Pressure/133.3,bar_data.minimum(),bar_data.maximum(),106,1); // Текущие значение
+    }
 
     lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
      
@@ -1444,8 +1464,10 @@ void ShowBMP085(boolean s) {
     current_position--; 
     
     y_pres--;
-
+    
    } 
+   
+    // Read_Data_BMP_EEPROM();  
   
   }  
   
@@ -1510,8 +1532,8 @@ void ShowBMP085Temp(boolean s) {
    lcd.setStr(f,107,88,GREEN,BLACK);
     
    int y_temp = 127;
-   
-   byte current_position = (now.unixtime()/1800)%96;
+    
+   unsigned int current_position = (now.unixtime()/1800)%96;
    
    for(byte j=0;j<96;j++) {
     
