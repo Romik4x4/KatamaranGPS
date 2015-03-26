@@ -246,6 +246,8 @@ int Contrast = 44;
 
 boolean start = true; // Если была перегрузка.
 
+char nmea; // NMEA Данные с порта
+
 // --------------------------------- SETUP ---------------------------------
 
 void setup() {
@@ -313,6 +315,11 @@ void setup() {
 
 void loop() {
   
+   if (Serial1.available()) {
+    nmea = Serial1.read();
+    gps.encode(nmea);
+   }
+     
    currentMillis = millis();
 
   if(currentMillis - updatePreviousInterval > 10000) {  // Каждые 10 секунд
@@ -525,13 +532,7 @@ void loop() {
      rtc.writeSqwPinMode(SquareWave1HZ);   // Включаем синий светодиод на DS1307
   }
    
-   if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) {
-    if (Serial1.available()) {
-     char nmea = Serial1.read();
-     gps.encode(nmea);
-     if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);  
-    }
-   }
+   if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);   
     
  if (GPS_OUT) {  
   if(currentMillis - gps_out_pi > 250) {    
