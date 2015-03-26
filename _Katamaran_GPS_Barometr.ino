@@ -148,7 +148,7 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 
 #define DISPLAY_MENU 1 // Если включен режим SetupMenu()
 
-#define MAX_MENU     10 // Всего Меню на экране 1-MAX_MENU
+#define MAX_MENU     11 // Всего Меню на экране 1-MAX_MENU
 #define MAX_DISPLAY  8 // Максимальое количество меню на экране
 
 // BOX G218C Chip-Dip
@@ -318,6 +318,7 @@ void loop() {
    if (Serial1.available()) {
     nmea = Serial1.read();
     gps.encode(nmea);
+    if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);       
    }
      
    currentMillis = millis();
@@ -532,8 +533,6 @@ void loop() {
      rtc.writeSqwPinMode(SquareWave1HZ);   // Включаем синий светодиод на DS1307
   }
    
-   if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);   
-    
  if (GPS_OUT) {  
   if(currentMillis - gps_out_pi > 250) {    
    gps_out_pi = currentMillis;  
@@ -1149,7 +1148,7 @@ void SetupMenu( void ) {
     bg[X_Menu-1] = WHITE;
   
    strcpy(f[0],"1.Analog Clock ");      
-   strcpy(f[1],"2.Voltmete     ");   
+   strcpy(f[1],"2.Voltmeter     ");   
    strcpy(f[2],"3.BMP/GPS Data ");   
    strcpy(f[3],"4.GPS Data     ");   
    strcpy(f[4],"5.Sun Set/Rise ");   
@@ -1158,7 +1157,8 @@ void SetupMenu( void ) {
    strcpy(f[7],"8.GPS NMEA     ");
    strcpy(f[8],"9.Temperature  ");
    strcpy(f[9],"A.Altimeter    ");
-   
+  strcpy(f[10],"B.Erase GPS TRK");
+ 
    if (X_Menu > MAX_DISPLAY) { pos = round(X_Menu / MAX_DISPLAY) * MAX_DISPLAY; lcd.clear(BLACK); }
    
    if (DEBUG) { bt.print("Menu Position:"); bt.println(pos); }
@@ -1262,6 +1262,8 @@ void ShowDataGPS(boolean s) {
 
 void ShowDataSun( boolean s) { 
   
+  DateTime now = rtc.now();
+      
   byte m_set=0,h_set=0;
   byte m_rise=0,d,h_rise=0;
   int t;   
@@ -1272,20 +1274,24 @@ void ShowDataSun( boolean s) {
    PreviousInterval = currentMillis;  
 
    strcpy(f, "Sun:");
+   
    lcd.setStr(f,0,2,YELLOW,BLACK);   
   
   if (gps.location.isValid()) {
       
    Sunrise mySunrise(gps.location.lat(),gps.location.lng(),UTC);
+   
    mySunrise.Actual();
 
-   t = mySunrise.Rise(11,19); // Month, Day
+   t = mySunrise.Rise(now.month(),now.day()); // Month, Day !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   
    if(t >= 0) {
     h_rise = mySunrise.Hour();
     m_rise = mySunrise.Minute();
    } else { h_rise = 0; m_rise = 0; }    
    
-   t = mySunrise.Set(11,19); // Month, Day
+   t = mySunrise.Set(now.month(),now.day()); // Month, Day !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   
    if(t >= 0) {
     h_set = mySunrise.Hour();
     m_set = mySunrise.Minute();  
