@@ -53,6 +53,7 @@ struct config_t
     unsigned long Display;
     int Contrast;
     unsigned long Last_GPS_Pos; // Последняя точка записи в EEPROM GPS Координат
+    boolean GPS_OUT;
   
 } configuration;
 
@@ -202,6 +203,7 @@ SoftwareSerial bt(23,22); // RX,TX
 #define BT_CONNECT 30     // PA6/D30 HIGH if BT connected
 
 TinyGPSPlus gps;
+
 boolean GPS_OUT = false; // Включить и выключить NMEA Output
 
 //////////////////////////////////////////// Часы ////////////////////////
@@ -256,8 +258,9 @@ void setup() {
   
   EEPROM_readAnything(0, configuration); // Чтения конфигурации
   
-  Display = configuration.Display;             // Default DISPLAY_1;
+  Display = configuration.Display;             // Default DISPLAY_1
   Contrast = configuration.Contrast;           // Default 44
+  GPS_OUT = configuration.GPS_OUT;             // Выводить NMEA в Bluetooth
   
   rtc.writeSqwPinMode(SquareWave1HZ); // Включаем синий светодиод на DS1307
   
@@ -361,7 +364,12 @@ void loop() {
        case 5: results.value = DISPLAY_5; break;
        case 6: results.value = DISPLAY_7; break;
        case 7: results.value = DISPLAY_8; break;       
-       case 8: if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true; results.value = DISPLAY_2; break;
+       case 8: 
+               if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true; 
+               results.value = DISPLAY_2; 
+               configuration.GPS_OUT = GPS_OUT;
+               EEPROM_writeAnything(0, configuration);
+               break;
        case 9:  results.value = DISPLAY_10; break;
        case 10: results.value = DISPLAY_11; break;
 
@@ -487,6 +495,8 @@ void loop() {
       
      case DISPLAY_9:
       if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true;
+      configuration.GPS_OUT = GPS_OUT;
+      EEPROM_writeAnything(0, configuration);
       break;
       
     }
@@ -592,11 +602,11 @@ void GPS_Track_Output( void ) {
     
     DateTime now = rtc.now();
  
-  bt.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-  bt.println("<gpx xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"1.0\"");
-  bt.println("xmlns=\"http://www.topografix.com/GPX/1/0\" creator=\"Polar WebSync 2.3 - www.polar.fi\"");
-  bt.println("xsi:schemaLocation=\"http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd\">");
-  bt.print("<time>");
+  bt.println(F("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
+  bt.println(F("<gpx xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"1.0\""));
+  bt.println(F("xmlns=\"http://www.topografix.com/GPX/1/0\" creator=\"Polar WebSync 2.3 - www.polar.fi\""));
+  bt.println(F("xsi:schemaLocation=\"http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd\">"));
+  bt.print(F("<time>"));
   bt.print(now.year());
   bt.print("-");
   if (now.month() < 10) bt.print("0"); bt.print(now.month());
@@ -608,10 +618,10 @@ void GPS_Track_Output( void ) {
   if (now.minute() < 10) bt.print("0"); bt.print(now.minute());
   bt.print(":");
   if (now.second() < 10) bt.print("0"); bt.print(now.second());
-  bt.println("Z</time>");
-  bt.println("<trk>");
-  bt.println("<name>GPS Track by Roma Kuzmin</name>");
-  bt.println("<trkseg>");
+  bt.println(F("Z</time>"));
+  bt.println(F("<trk>"));
+  bt.println(F("<name>GPS Track by Roma Kuzmin</name>"));
+  bt.println(F("<trkseg>"));
     
   while (address < (EE24LC256MAXBYTES - (sizeof(gps_tracker)+1) ) )  {
   
@@ -656,9 +666,9 @@ void GPS_Track_Output( void ) {
       bt.println("</trkpt>");
     }
 
-   bt.println("</trkseg>");
-   bt.println("</trk>");
-   bt.println("</gpx>");
+   bt.println(F("</trkseg>"));
+   bt.println(F("</trk>"));
+   bt.println(F("</gpx>"));
     
    }  
    
