@@ -284,6 +284,9 @@ void setup() {
   lcd.init(EPSON);   // Initializes lcd, using an PHILIPSdriver
   lcd.contrast(Contrast);  // -51's usually a good contrast value
   lcd.clear(BLACK);  // clear the screen
+  
+  // rtc.writeSqwPinMode(OFF); // Для экономии 10 мА
+  // digitalWrite(CPU_LED,HIGH);
 
   Serial1.begin(4800);  // GPS EM-406
  
