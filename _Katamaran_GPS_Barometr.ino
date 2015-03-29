@@ -539,17 +539,19 @@ void loop() {
   }
  
   if(currentMillis - loopPreviousInterval > FIVE_MINUT) {  // Каждые 5 минут [300000]
-   loopPreviousInterval = currentMillis;  
-   if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid())
+   loopPreviousInterval = currentMillis;     
+   if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
      rtc.writeSqwPinMode(OFF);             // Выключаем синий светодиод на DS1307
      set_GPS_DateTime();
-     if (battary() < 4.0) {
+     rtc.writeSqwPinMode(SquareWave1HZ);   // Включаем синий светодиод на DS1307     
+   } 
+     if (battary() < 4.0) { // Если идет зарядка то можео включить
       rtc.writeSqwPinMode(OFF); 
      } else {
       rtc.writeSqwPinMode(SquareWave1HZ);   // Включаем синий светодиод на DS1307
      }
   }
-   
+  
  if (GPS_OUT) {  
   if(currentMillis - gps_out_pi > 250) {    
    gps_out_pi = currentMillis;  
