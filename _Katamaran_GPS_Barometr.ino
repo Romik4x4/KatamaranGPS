@@ -848,11 +848,20 @@ float battary( void ) {
   
 }
 
-void draw_battary( void ) {
+void draw_battary( boolean type ) {
   
-  lcd.setRect(115,40, 125, 55, 0, WHITE); // box   
-  lcd.setRect(117,55, 123, 58, 1, WHITE); // box +   
-  lcd.setRect(115,40, 125, 45, 1, WHITE); // box full  
+  // Type == true  - Normal
+  // Type == false - Clear box
+  
+  if (type) {
+   lcd.setRect(115,40, 125, 55, 0, WHITE); // box   
+   lcd.setRect(117,55, 123, 58, 1, WHITE); // box +   
+   lcd.setRect(115,40, 125, 45, 1, WHITE); // box full  
+  } else {
+   lcd.setRect(115,40, 125, 55, 0, BLACK); // box   
+   lcd.setRect(117,55, 123, 58, 1, BLACK); // box +   
+   lcd.setRect(115,40, 125, 45, 1, BLACK); // box full      
+  }
    
 }
 
@@ -1486,8 +1495,9 @@ void ShowBMP085(boolean s) {
    // Время
       
    if ( battary() < 4.0 ) {   // Рисуем батарейку
-    draw_battary();
+    draw_battary(true);
    } else { 
+    draw_battary(false);
     strcpy(f,"2 Days");
     lcd.setStr(f,107,33,RED,BLACK);
    }
@@ -1585,8 +1595,9 @@ void ShowBMP085Temp(boolean s) {
    // Время
      
    if ( battary() < 4.0 ) {   // Рисуем батарейку
-    draw_battary();
+    draw_battary(true);
    } else { 
+    draw_battary(false);
     strcpy(f,"2 Days");
     lcd.setStr(f,107,33,RED,BLACK);
    }
@@ -1675,8 +1686,9 @@ void ShowBMP085Alt(boolean s) {
    // Время
       
    if ( battary() < 4.0 ) {   // Рисуем батарейку
-    draw_battary();
+    draw_battary(true);
    } else { 
+    draw_battary(false);
     strcpy(f,"2 Days");
     lcd.setStr(f,107,33,RED,BLACK);
    }
