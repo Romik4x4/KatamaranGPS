@@ -180,7 +180,9 @@ I2C_eeprom eeprom256(EEPROM_ADDRESS_256,EE24LC256MAXBYTES);
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
+
 DeviceAddress RTC_Thermometer = { 0x28, 0x46, 0xBD, 0x19, 0x3, 0x0, 0x0, 0x35 };
+DeviceAddress EXT_Thermometer = { 0x28, 0x33, 0x50, 0x7A, 0x5, 0x0, 0x0, 0xB9 };
 
 #define TEMPERATURE_PRECISION 12
 #define ds oneWire
@@ -279,7 +281,8 @@ void setup() {
   irrecv.enableIRIn();
    
   pinMode(CPU_LED,OUTPUT);
-  digitalWrite(CPU_LED,LOW);
+  
+  if (!GPS_OUT) digitalWrite(CPU_LED,HIGH);
 
   lcd.init(EPSON);   // Initializes lcd, using an PHILIPSdriver
   lcd.contrast(Contrast);  // -51's usually a good contrast value
@@ -302,10 +305,13 @@ void setup() {
   dps.getPressure(&Pressure);        // Давление
   dps.getAltitude(&Altitude);        // Высота 
   dps.getTemperature(&Temperature);  // Температура
+
+  float tempC = getTemperature(EXT_Thermometer);
+        tempC = f2c(tempC);
           
   bmp085_data.Press = Pressure/133.3;
   bmp085_data.Alt   = Altitude/100.0;
-  bmp085_data.Temp  = Temperature*0.1;
+  bmp085_data.Temp  = tempC;
   
   start = true; // Для того чтобы вернуть сохраненый дисплай и обновить его.
   
@@ -317,6 +323,7 @@ void setup() {
 ///////////////////////////////////////////////////////////////////////
 
 void loop() {
+  
   
    if (Serial1.available()) {
     nmea = Serial1.read();
@@ -333,9 +340,12 @@ void loop() {
    dps.getAltitude(&Altitude);        // Высота 
    dps.getTemperature(&Temperature);  // Температура
 
+   float tempC = getTemperature(EXT_Thermometer);
+         tempC = f2c(tempC);
+
    bmp085_data.Press = ( bmp085_data.Press + Pressure/133.3 ) / 2.0;
    bmp085_data.Alt   = ( bmp085_data.Alt + Altitude/100.0 ) / 2.0;
-   bmp085_data.Temp  = ( bmp085_data.Temp + Temperature*0.1 ) / 2.0;
+   bmp085_data.Temp  = ( bmp085_data.Temp + tempC ) / 2.0;
 
   }
 
@@ -533,7 +543,11 @@ void loop() {
    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid())
      rtc.writeSqwPinMode(OFF);             // Выключаем синий светодиод на DS1307
      set_GPS_DateTime();
-     rtc.writeSqwPinMode(SquareWave1HZ);   // Включаем синий светодиод на DS1307
+     if (battary() < 4.0) {
+      rtc.writeSqwPinMode(OFF); 
+     } else {
+      rtc.writeSqwPinMode(SquareWave1HZ);   // Включаем синий светодиод на DS1307
+     }
   }
    
  if (GPS_OUT) {  
@@ -763,14 +777,17 @@ void Save_Bar_Data( void ) {
   dps.getPressure(&Pressure);        // Давление
   dps.getAltitude(&Altitude);        // Высота 
   dps.getTemperature(&Temperature);  // Температура
+  
+   float tempC = getTemperature(EXT_Thermometer);
+         tempC = f2c(tempC);
    
   DateTime now = rtc.now();
   
-  bmp085_data.unix_time = now.unixtime(); // - (60 * 60 * UTC);
+   bmp085_data.unix_time = now.unixtime(); // - (60 * 60 * UTC);
        
    bmp085_data.Press = ( bmp085_data.Press + Pressure/133.3 ) / 2.0;
    bmp085_data.Alt   = ( bmp085_data.Alt + Altitude/100.0 ) / 2.0;
-   bmp085_data.Temp  = ( bmp085_data.Temp + Temperature*0.1 ) / 2.0;
+   bmp085_data.Temp  = ( bmp085_data.Temp + tempC ) / 2.0;
      
    BAR_EEPROM_POS = ( (bmp085_data.unix_time/1800)%96 ) * sizeof(bmp085_data); // Номер ячейки памяти.
 
@@ -827,6 +844,14 @@ float battary( void ) {
   float voltage = sensorValue * (5.0 / 1023.0);
   return(voltage);
   
+}
+
+void draw_battary( void ) {
+  
+  lcd.setRect(115,40, 125, 55, 0, WHITE); // box   
+  lcd.setRect(117,55, 123, 58, 1, WHITE); // box +   
+  lcd.setRect(115,40, 125, 45, 1, WHITE); // box full  
+   
 }
 
 // --------------------------------------------- Функция для Аналоговых часов --------------------
@@ -1111,6 +1136,8 @@ void ShowData(boolean s) {
    strcat(f,output);
    lcd.setStr(f,75,2,WHITE, BLACK);       
      
+   // float tempC = getTemperature(EXT_Thermometer); // Внешний термометр
+   
    float tempC = getTemperature(RTC_Thermometer);
          tempC = f2c(tempC);
    
@@ -1455,9 +1482,14 @@ void ShowBMP085(boolean s) {
    lcd.setStr(f,107,3,YELLOW,BLACK);   // Текущие давление
   
    // Время
-     
-   strcpy(f,"2 Days");
-   lcd.setStr(f,107,33,RED,BLACK);
+      
+   if ( battary() < 4.0 ) {   // Рисуем батарейку
+    draw_battary();
+   } else { 
+    strcpy(f,"2 Days");
+    lcd.setStr(f,107,33,RED,BLACK);
+   }
+   
    sprintf(f,"%.2d:%.2d",now.hour(),now.minute());
    lcd.setStr(f,107,88,GREEN,BLACK);
     
@@ -1531,6 +1563,10 @@ void ShowBMP085Temp(boolean s) {
    int x;
    
    dps.getTemperature(&Temperature); // Текущие значение температуры
+   
+   float tempC = getTemperature(EXT_Thermometer);
+         tempC = f2c(tempC);
+   
 
    sprintf(f,"%d",(int)temp_data.maximum());
    lcd.setStr(f,0,3,WHITE,BLACK);
@@ -1541,13 +1577,18 @@ void ShowBMP085Temp(boolean s) {
    sprintf(f,"%d",(int)temp_data.minimum());    
    lcd.setStr(f,85,3,WHITE,BLACK);
    
-   sprintf(f,"%d",(int)(Temperature*0.1));     
+   sprintf(f,"%d",(int)(tempC));     
    lcd.setStr(f,107,3,YELLOW,BLACK);   // Текущие значение температуры
   
    // Время
      
-   strcpy(f,"2 Days");
-   lcd.setStr(f,107,33,RED,BLACK);
+   if ( battary() < 4.0 ) {   // Рисуем батарейку
+    draw_battary();
+   } else { 
+    strcpy(f,"2 Days");
+    lcd.setStr(f,107,33,RED,BLACK);
+   }
+   
    sprintf(f,"%.2d:%.2d",now.hour(),now.minute());
    lcd.setStr(f,107,88,GREEN,BLACK);
     
@@ -1558,7 +1599,7 @@ void ShowBMP085Temp(boolean s) {
    for(byte j=0;j<96;j++) {
     
     if (j != 0) x = map(tempArray[current_position],temp_data.minimum(),temp_data.maximum(),106,1);  
-    else x = map(Temperature*0.1,temp_data.minimum(),temp_data.maximum(),106,1);
+    else x = map(tempC,temp_data.minimum(),temp_data.maximum(),106,1);
 
     lcd.setLine(0,y_temp,106,y_temp, BLACK); // Стереть линию
      
@@ -1630,9 +1671,14 @@ void ShowBMP085Alt(boolean s) {
    lcd.setStr(f,107,3,YELLOW,BLACK);   // Текущие значение температуры
   
    // Время
-     
-   strcpy(f,"2 Days");
-   lcd.setStr(f,107,33,RED,BLACK);
+      
+   if ( battary() < 4.0 ) {   // Рисуем батарейку
+    draw_battary();
+   } else { 
+    strcpy(f,"2 Days");
+    lcd.setStr(f,107,33,RED,BLACK);
+   }
+   
    sprintf(f,"%.2d:%.2d",now.hour(),now.minute());
    lcd.setStr(f,107,88,GREEN,BLACK);
     
