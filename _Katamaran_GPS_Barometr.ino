@@ -393,6 +393,7 @@ void loop() {
                break;
        case 9:  results.value = DISPLAY_10; break;
        case 10: results.value = DISPLAY_11; break;
+       case 11: erase_gps_track(); break;
 
       }
      }  
@@ -1725,6 +1726,24 @@ void ShowBMP085Alt(boolean s) {
    } 
   
   }  
+  
+}
+
+void erase_gps_track( void ) {
+   
+ //  lcd.clear(BLACK);
+  
+ lcd.setRect(70,20, 100, 100, 0, WHITE); // box   
+ 
+ for(int i=0;i<80;i++) {
+//  lcd.setRect(70,20, 100, 20+i, 1, WHITE); // 
+  lcd.setLine(70,20+i,100,20+i,WHITE); // Заливаем i=0 to i=79
+ }
+ 
+ delay(1000);
+ 
+ lcd.setRect(70,20, 101, 101, 1, BLACK); // Erase All
+ 
   
 }
 
