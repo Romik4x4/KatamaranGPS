@@ -543,7 +543,6 @@ void loop() {
    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
      rtc.writeSqwPinMode(OFF);             // Выключаем синий светодиод на DS1307
      set_GPS_DateTime();
-     rtc.writeSqwPinMode(SquareWave1HZ);   // Включаем синий светодиод на DS1307     
    } 
      if (battary() < 4.0) { // Если идет зарядка то можео включить
       rtc.writeSqwPinMode(OFF); 
@@ -1495,6 +1494,8 @@ void ShowBMP085(boolean s) {
    // Время
       
    if ( battary() < 4.0 ) {   // Рисуем батарейку
+    strcpy(f,"      ");
+    lcd.setStr(f,107,33,RED,BLACK);
     draw_battary(true);
    } else { 
     draw_battary(false);
@@ -1595,6 +1596,8 @@ void ShowBMP085Temp(boolean s) {
    // Время
      
    if ( battary() < 4.0 ) {   // Рисуем батарейку
+    strcpy(f,"      ");
+    lcd.setStr(f,107,33,RED,BLACK);
     draw_battary(true);
    } else { 
     draw_battary(false);
@@ -1686,6 +1689,8 @@ void ShowBMP085Alt(boolean s) {
    // Время
       
    if ( battary() < 4.0 ) {   // Рисуем батарейку
+    strcpy(f,"      ");
+    lcd.setStr(f,107,33,RED,BLACK);
     draw_battary(true);
    } else { 
     draw_battary(false);
