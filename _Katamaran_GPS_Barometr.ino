@@ -33,7 +33,6 @@
 RTC_DS1307 rtc;  // DS1307 RTC Real Time Clock
 
 #define FIVE_MINUT 300000
-
 #define TWO_DAYS 172800
 
 // ------------------------------
@@ -149,7 +148,7 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 #define DISPLAY_MENU 1 // Если включен режим SetupMenu()
 
 #define MAX_MENU     11 // Всего Меню на экране 1-MAX_MENU
-#define MAX_DISPLAY  8 // Максимальое количество меню на экране
+#define MAX_DISPLAY  8  // Максимальое количество меню на экране
 
 // BOX G218C Chip-Dip
 
@@ -169,7 +168,7 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 #define DS1307_ADDRESS  0x68 // DS1307
 
 #define EE24LC32MAXBYTES   32768/8
-#define EE24LC256MAXBYTES 262144/8
+#define EE24LC256MAXBYTES 262144/8 // 32768 Байт [0-32767]
 
 I2C_eeprom  eeprom32(EEPROM_ADDRESS_32 ,EE24LC32MAXBYTES);
 I2C_eeprom eeprom256(EEPROM_ADDRESS_256,EE24LC256MAXBYTES);
@@ -184,7 +183,11 @@ DallasTemperature sensors(&oneWire);
 DeviceAddress RTC_Thermometer = { 0x28, 0x46, 0xBD, 0x19, 0x3, 0x0, 0x0, 0x35 };
 DeviceAddress EXT_Thermometer = { 0x28, 0x33, 0x50, 0x7A, 0x5, 0x0, 0x0, 0xB9 };
 
-#define TEMPERATURE_PRECISION 12
+// Device 0 Address: 2846BD1903000035
+// Device 1 Address: 2833507A050000B9
+
+#define TEMPERATURE_PRECISION 9
+
 #define ds oneWire
 
 LCDShield lcd;  // Creates an LCDShield, named lcd
@@ -238,6 +241,7 @@ unsigned long voltPreviousInterval = 0;    // Для вольтметра
 unsigned long barPreviousInterval = 0;     // Для барометра для показа
 unsigned long BarSavePreviousInterval = 0; // Для барометра сохранять
 unsigned long updatePreviousInterval = 0;  // Для обновление данных с BMP085
+unsigned long updTimeCur = 0;              // Для обновление текущий данных на графиках
 
 unsigned long gpsTrackPI = 0;            // Каждые пять минут сохраняем GPS Position
 unsigned long gps_out_pi = 0;            // Если GPS_OUT мигаем светодиодом на MCU
@@ -250,12 +254,23 @@ boolean start = true; // Если была перегрузка.
 
 char nmea; // NMEA Данные с порта
 
+boolean page = false; // Какая страница для очистки при переходе
+
+float tempC; // Температура внешнего датчика
+
 // --------------------------------- SETUP ---------------------------------
 
 void setup() {
   
   Wire.begin();  // Attach I2C Protocol
+ 
   delay(500);
+  
+ //  sensors.begin();
+  
+  sensors.setResolution(RTC_Thermometer, TEMPERATURE_PRECISION);
+  sensors.setResolution(EXT_Thermometer, TEMPERATURE_PRECISION);
+  
   rtc.begin();
   
   // rtc.adjust(DateTime(__DATE__, __TIME__)); // Востоновить время.
@@ -295,9 +310,6 @@ void setup() {
  
   bt.begin(9600);       // Bluetooth
   
-  sensors.begin();
-  sensors.setResolution(RTC_Thermometer, TEMPERATURE_PRECISION);
-  
   // erase_eeprom_bmp085();  // Стереть все данные EEPROM BMP085  
   
   // Read_Data_BMP_EEPROM(); // Чтение всех данный из EEPROM
@@ -305,10 +317,23 @@ void setup() {
   dps.getPressure(&Pressure);        // Давление
   dps.getAltitude(&Altitude);        // Высота 
   dps.getTemperature(&Temperature);  // Температура
-
-  float tempC = getTemperature(EXT_Thermometer);
-        tempC = f2c(tempC);
-          
+  
+  tempC = sensors.getTempC(EXT_Thermometer);
+  
+  if (DEBUG) {
+    
+    while(1) {    
+     tempC = sensors.getTempC(EXT_Thermometer);
+     bt.println(tempC);
+     tempC = sensors.getTempC(RTC_Thermometer);
+     bt.println(tempC);
+   
+     delay(1000);
+     bt.println("------------------------------");  
+    }
+    
+  }
+        
   bmp085_data.Press = Pressure/133.3;
   bmp085_data.Alt   = Altitude/100.0;
   bmp085_data.Temp  = tempC;
@@ -340,8 +365,7 @@ void loop() {
    dps.getAltitude(&Altitude);        // Высота 
    dps.getTemperature(&Temperature);  // Температура
 
-   float tempC = getTemperature(EXT_Thermometer);
-         tempC = f2c(tempC);
+  tempC = sensors.getTempC(EXT_Thermometer);
 
    bmp085_data.Press = ( bmp085_data.Press + Pressure/133.3 ) / 2.0;
    bmp085_data.Alt   = ( bmp085_data.Alt + Altitude/100.0 ) / 2.0;
@@ -367,7 +391,7 @@ void loop() {
      if (DEBUG) { bt.print("IR Code:"); bt.println(results.value); }
      
      if (results.value == DIS_UP && Display == DISPLAY_MENU) { // Вниз
-       X_Menu--; if (X_Menu == 0) X_Menu = MAX_MENU; 
+       X_Menu--; if (X_Menu == 0) { page=true; X_Menu = MAX_MENU;  }
        SetupMenu(); 
      }
      
@@ -470,8 +494,8 @@ void loop() {
       break;
 
      case DISPLAY_7:
-      // GPS_Track_Output();
-      Read_Data_BMP_EEPROM();
+      GPS_Track_Output();
+      // Read_Data_BMP_EEPROM();
       break;
       
      case DISPLAY_8:
@@ -615,7 +639,7 @@ void GPS_Track_Output( void ) {
   int count = 0;
   char f[20];
   
-  if (digitalRead(BT_CONNECT) == HIGH) {      
+  if (digitalRead(BT_CONNECT) == HIGH && !GPS_OUT) {      
   
     lcd.clear(BLACK);
     
@@ -628,25 +652,36 @@ void GPS_Track_Output( void ) {
   bt.print(F("<time>"));
   bt.print(now.year());
   bt.print("-");
-  if (now.month() < 10) bt.print("0"); bt.print(now.month());
+  if (now.month() < 10) bt.print(F("0")); bt.print(now.month());
   bt.print("-");
-  if (now.day() < 10) bt.print("0"); bt.print(now.day());
+  if (now.day() < 10) bt.print(F("0")); bt.print(now.day());
   bt.print("T");
-  if (now.hour() < 10) bt.print("0"); bt.print(now.hour());
+  if (now.hour() < 10) bt.print(F("0")); bt.print(now.hour());
   bt.print(":");
-  if (now.minute() < 10) bt.print("0"); bt.print(now.minute());
+  if (now.minute() < 10) bt.print(F("0")); bt.print(now.minute());
   bt.print(":");
-  if (now.second() < 10) bt.print("0"); bt.print(now.second());
+  if (now.second() < 10) bt.print(F("0")); bt.print(now.second());
   bt.println(F("Z</time>"));
   bt.println(F("<trk>"));
   bt.println(F("<name>GPS Track by Roma Kuzmin</name>"));
   bt.println(F("<trkseg>"));
-    
+ 
+  lcd.setRect(70,20, 100, 100, 0, WHITE); // box   
+  int ix = 0;
+  
   while (address < (EE24LC256MAXBYTES - (sizeof(gps_tracker)+1) ) )  {
   
-   sprintf(f,"Output: %.4d",address);
-   lcd.setStr(f,3,3,YELLOW,BLACK);
+   //sprintf(f,"Output: %.4d",address);
+   //lcd.setStr(f,3,3,YELLOW,BLACK);
    
+   lcd.setLine(70,20+ix,100,20+ix,WHITE); // Заливаем i=0 to i=79
+   ix++;
+   if (ix==80) { 
+    lcd.setRect(70,20,101,101,1,BLACK); // Erase All
+    lcd.setRect(70,20,100,100,0,WHITE); // box   
+    ix=0;
+   }
+    
    byte* pp = (byte*)(void*)&gps_tracker; 
    for (unsigned int i = 0; i < sizeof(gps_tracker); i++)
     *pp++ = eeprom256.readByte(address++);
@@ -673,12 +708,16 @@ void GPS_Track_Output( void ) {
       bt.print("<time>"); 
       bt.print(gps_tracker.years); 
       bt.print("-");
+      if (gps_tracker.months < 10) bt.print(F("0"));
       bt.print(gps_tracker.months);
       bt.print("-");
+      if (gps_tracker.days < 10) bt.print(F("0"));
       bt.print(gps_tracker.days); 
       bt.print("T");
+      if (gps_tracker.hours < 10) bt.print(F("0"));
       bt.print(gps_tracker.hours);
       bt.print(":");
+      if (gps_tracker.minutes < 10) bt.print(F("0"));
       bt.print(gps_tracker.minutes);
       bt.print(":00Z");
       bt.println("</time>");
@@ -780,8 +819,7 @@ void Save_Bar_Data( void ) {
   dps.getAltitude(&Altitude);        // Высота 
   dps.getTemperature(&Temperature);  // Температура
   
-   float tempC = getTemperature(EXT_Thermometer);
-         tempC = f2c(tempC);
+  tempC = sensors.getTempC(EXT_Thermometer);
    
   DateTime now = rtc.now();
   
@@ -1046,54 +1084,6 @@ void Analog_Time_Clock( void ) {
   
 }
 
-
-
-// ----------------------------------- getTemperature (no delay) -------------------
-
-float f2c(float val){
-  float aux = val - 32;
-  return (aux * 5 / 9);
-}
-
-void writeTimeToScratchpad(byte* address){
-  ds.reset();
-  ds.select(address);
-  ds.write(0x44,1);
-  delay(10);
-}
-
-void readTimeFromScratchpad(byte* address, byte* data){
-  ds.reset();
-  ds.select(address);
-  ds.write(0xBE);
-  for (byte i=0;i<9;i++){
-    data[i] = ds.read();
-  }
-}
-
-float getTemperature(byte* address){
-
-  int tr;
-  byte data[12];
-
-  writeTimeToScratchpad(address);
-  readTimeFromScratchpad(address,data);
-
-  tr = data[0];
-
-  if (data[1] > 0x80){
-    tr = !tr + 1; 
-    tr = tr * -1; 
-  }
-
-  int cpc = data[7];
-  int cr = data[6];
-
-  tr = tr >> 1;
-
-  return tr - (float)0.25 + (cpc - cr)/(float)cpc;
-}
-
 // -------------------------------- Show Data on Display 3 -----------------------------------
 
 void ShowData(boolean s) {
@@ -1147,10 +1137,7 @@ void ShowData(boolean s) {
    strcat(f,output);
    lcd.setStr(f,75,2,WHITE, BLACK);       
      
-   // float tempC = getTemperature(EXT_Thermometer); // Внешний термометр
-   
-   float tempC = getTemperature(RTC_Thermometer);
-         tempC = f2c(tempC);
+   tempC = sensors.getTempC(EXT_Thermometer);
    
    dtostrf(tempC, 4, 2, output);
    strcpy(f,"T[rtc]: ");
@@ -1189,7 +1176,7 @@ void SetupMenu( void ) {
     bg[X_Menu-1] = WHITE;
   
    strcpy(f[0],"1.Analog Clock ");      
-   strcpy(f[1],"2.Voltmeter     ");   
+   strcpy(f[1],"2.Voltmeter    ");   
    strcpy(f[2],"3.BMP/GPS Data ");   
    strcpy(f[3],"4.GPS Data     ");   
    strcpy(f[4],"5.Sun Set/Rise ");   
@@ -1198,11 +1185,15 @@ void SetupMenu( void ) {
    strcpy(f[7],"8.GPS NMEA     ");
    strcpy(f[8],"9.Temperature  ");
    strcpy(f[9],"A.Altimeter    ");
-  strcpy(f[10],"B.Erase GPS TRK");
- 
-   if (X_Menu > MAX_DISPLAY) { pos = round(X_Menu / MAX_DISPLAY) * MAX_DISPLAY; lcd.clear(BLACK); }
+  strcpy(f[10],"B.None         ");
+
+   if (DEBUG) { bt.print(F("Menu Position:")); bt.println(X_Menu); }
+
+   if ( page ) { page = false ; lcd.clear(BLACK); }
+      
+   if (X_Menu > MAX_DISPLAY) { pos = round(X_Menu / MAX_DISPLAY) * MAX_DISPLAY; } 
    
-   if (DEBUG) { bt.print("Menu Position:"); bt.println(pos); }
+   if (DEBUG) { bt.print(F("Menu Position:")); bt.println(pos); }
    
    for(byte j=0;j<MAX_DISPLAY;j++) {
      
@@ -1544,10 +1535,27 @@ void ShowBMP085(boolean s) {
 
 void ShowBMP085Temp(boolean s) {
 
- if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || (s == true) ) {  
-      barPreviousInterval = currentMillis;      
+   char f[10];
+   int x;
+   
+   tempC = sensors.getTempC(EXT_Thermometer);
 
    DateTime now = rtc.now();    
+   
+  if ((currentMillis - updTimeCur > 10000) || (s == true) ) {  
+   updTimeCur = currentMillis;      
+   
+   if (DEBUG) bt.println(tempC);
+   
+   sprintf(f,"%3d",(int)(tempC));     
+   lcd.setStr(f,107,3,YELLOW,BLACK);   // Текущие значение температуры
+ 
+    sprintf(f,"%.2d:%.2d",now.hour(),now.minute());
+    lcd.setStr(f,107,88,GREEN,BLACK);
+   }   
+   
+ if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || (s == true) ) {  
+      barPreviousInterval = currentMillis;      
   
    Average<double> temp_data(96); // Вычисление максимального и минимального значения
    
@@ -1572,16 +1580,12 @@ void ShowBMP085Temp(boolean s) {
    lcd.setLine(107,0,107,129,WHITE); // Линия по горизонтали
 
    // Давление     
-
-   char f[10];
-   int x;
    
-   dps.getTemperature(&Temperature); // Текущие значение температуры
+   // dps.getTemperature(&Temperature); // Текущие значение температуры
    
-   float tempC = getTemperature(EXT_Thermometer);
-         tempC = f2c(tempC);
+   // float tempC = getTemperature(EXT_Thermometer);
+   //       tempC = f2c(tempC);
    
-
    sprintf(f,"%d",(int)temp_data.maximum());
    lcd.setStr(f,0,3,WHITE,BLACK);
    
@@ -1591,7 +1595,7 @@ void ShowBMP085Temp(boolean s) {
    sprintf(f,"%d",(int)temp_data.minimum());    
    lcd.setStr(f,85,3,WHITE,BLACK);
    
-   sprintf(f,"%d",(int)(tempC));     
+   sprintf(f,"%3d",(int)(tempC));     
    lcd.setStr(f,107,3,YELLOW,BLACK);   // Текущие значение температуры
   
    // Время
@@ -1606,8 +1610,8 @@ void ShowBMP085Temp(boolean s) {
     lcd.setStr(f,107,33,RED,BLACK);
    }
    
-   sprintf(f,"%.2d:%.2d",now.hour(),now.minute());
-   lcd.setStr(f,107,88,GREEN,BLACK);
+ //  sprintf(f,"%.2d:%.2d",now.hour(),now.minute());
+ //  lcd.setStr(f,107,88,GREEN,BLACK);
     
    int y_temp = 127;
     
@@ -1728,6 +1732,8 @@ void ShowBMP085Alt(boolean s) {
   }  
   
 }
+
+// Новая функция
 
 void erase_gps_track( void ) {
    
