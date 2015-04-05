@@ -188,7 +188,7 @@ DeviceAddress EXT_Thermometer = { 0x28, 0x33, 0x50, 0x7A, 0x5, 0x0, 0x0, 0xB9 };
 
 #define TEMPERATURE_PRECISION 9
 
-#define ds oneWire
+// #define ds oneWire
 
 LCDShield lcd;  // Creates an LCDShield, named lcd
 
@@ -254,7 +254,8 @@ boolean start = true; // Если была перегрузка.
 
 char nmea; // NMEA Данные с порта
 
-boolean page = false; // Какая страница для очистки при переходе
+boolean page = false;  // Какая страница для очистки при переходе
+boolean page2 = false; // Мы на второй странице
 
 float tempC; // Температура внешнего датчика
 
@@ -266,7 +267,7 @@ void setup() {
  
   delay(500);
   
- //  sensors.begin();
+  sensors.begin();
   
   sensors.setResolution(RTC_Thermometer, TEMPERATURE_PRECISION);
   sensors.setResolution(EXT_Thermometer, TEMPERATURE_PRECISION);
@@ -317,12 +318,15 @@ void setup() {
   dps.getPressure(&Pressure);        // Давление
   dps.getAltitude(&Altitude);        // Высота 
   dps.getTemperature(&Temperature);  // Температура
-  
+
+
+  sensors.requestTemperatures(); 
   tempC = sensors.getTempC(EXT_Thermometer);
   
-  if (DEBUG) {
+  if (DEBUG) { // Все работает
     
-    while(1) {    
+    while(1) {   
+     sensors.requestTemperatures(); 
      tempC = sensors.getTempC(EXT_Thermometer);
      bt.println(tempC);
      tempC = sensors.getTempC(RTC_Thermometer);
@@ -365,7 +369,8 @@ void loop() {
    dps.getAltitude(&Altitude);        // Высота 
    dps.getTemperature(&Temperature);  // Температура
 
-  tempC = sensors.getTempC(EXT_Thermometer);
+   sensors.requestTemperatures(); 
+   tempC = sensors.getTempC(EXT_Thermometer);
 
    bmp085_data.Press = ( bmp085_data.Press + Pressure/133.3 ) / 2.0;
    bmp085_data.Alt   = ( bmp085_data.Alt + Altitude/100.0 ) / 2.0;
@@ -392,11 +397,13 @@ void loop() {
      
      if (results.value == DIS_UP && Display == DISPLAY_MENU) { // Вниз
        X_Menu--; if (X_Menu == 0) { page=true; X_Menu = MAX_MENU;  }
+       if (X_Menu <= MAX_DISPLAY) page2=false;
        SetupMenu(); 
      }
      
      if (results.value == DIS_DOWN && Display == DISPLAY_MENU) { // Вверх
-       X_Menu++; if (X_Menu > MAX_MENU) X_Menu=1; 
+       X_Menu++; if (X_Menu > MAX_MENU) X_Menu=1;
+       if (X_Menu > MAX_DISPLAY) { if (!page2) { page = true; page2=true; } }
        SetupMenu(); 
      }
      
@@ -819,7 +826,7 @@ void Save_Bar_Data( void ) {
   dps.getAltitude(&Altitude);        // Высота 
   dps.getTemperature(&Temperature);  // Температура
   
-  tempC = sensors.getTempC(EXT_Thermometer);
+  // tempC = sensors.getTempC(EXT_Thermometer);
    
   DateTime now = rtc.now();
   
@@ -1137,7 +1144,7 @@ void ShowData(boolean s) {
    strcat(f,output);
    lcd.setStr(f,75,2,WHITE, BLACK);       
      
-   tempC = sensors.getTempC(EXT_Thermometer);
+   // tempC = sensors.getTempC(EXT_Thermometer);
    
    dtostrf(tempC, 4, 2, output);
    strcpy(f,"T[rtc]: ");
@@ -1538,7 +1545,7 @@ void ShowBMP085Temp(boolean s) {
    char f[10];
    int x;
    
-   tempC = sensors.getTempC(EXT_Thermometer);
+   // tempC = sensors.getTempC(EXT_Thermometer);
 
    DateTime now = rtc.now();    
    
