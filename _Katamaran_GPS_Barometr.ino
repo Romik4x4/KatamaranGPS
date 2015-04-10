@@ -330,8 +330,7 @@ void setup() {
      tempC = sensors.getTempC(EXT_Thermometer);
      bt.println(tempC);
      tempC = sensors.getTempC(RTC_Thermometer);
-     bt.println(tempC);
-   
+     bt.println(tempC);   
      delay(1000);
      bt.println("------------------------------");  
     }
@@ -424,7 +423,7 @@ void loop() {
                break;
        case 9:  results.value = DISPLAY_10; break;
        case 10: results.value = DISPLAY_11; break;
-       case 11: erase_gps_track(); break;
+       case 11: Read_Data_BMP_EEPROM(); break;
 
       }
      }  
@@ -502,7 +501,6 @@ void loop() {
 
      case DISPLAY_7:
       GPS_Track_Output();
-      // Read_Data_BMP_EEPROM();
       break;
       
      case DISPLAY_8:
@@ -565,7 +563,7 @@ void loop() {
    Save_GPS_Pos();  // Save GPS Position
   }
   
-  if(currentMillis - BarSavePreviousInterval > (FIVE_MINUT*4)){ // Каждые 20 минут Save BAR Parameters 
+  if(currentMillis - BarSavePreviousInterval > (FIVE_MINUT*3)) { //*4 Каждые 20 минут Save BAR Parameters 
    BarSavePreviousInterval = currentMillis;
    Save_Bar_Data(); // Save BMP_085 Data  
   }
@@ -752,12 +750,16 @@ void Read_Data_BMP_EEPROM( void ) {
    
    BAR_EEPROM_POS = 0;
 
+   lcd.setRect(70,20, 100, 116, 0, WHITE); // Рисуем квадрат пустой
+ 
    bt.println("--------------- START -----------------------");
     
    DateTime now = rtc.now();
     
    for(byte j=0;j<96;j++) {
-           
+     
+   lcd.setLine(70,20+j,100,20+j,WHITE); // Заливаем i=0 to i=95
+                 
     byte* pp = (byte*)(void*)&bmp085_data_out; 
     for (unsigned int i = 0; i < sizeof(bmp085_data_out); i++)
      *pp++ = eeprom32.readByte(BAR_EEPROM_POS++);
@@ -813,6 +815,8 @@ void Read_Data_BMP_EEPROM( void ) {
    
    BAR_EEPROM_POS = 0;
     
+   lcd.setRect(70,20, 101, 117, 1, BLACK); // Удаляем весь квадрат
+    
 }
 // --------------------------- Save Barometer Data to EEPROM -------------------------------------
 
@@ -822,15 +826,16 @@ void Save_Bar_Data( void ) {
     // 2880 минут / 30 минут = 96 Ячеек
     // (UnixTime / 1800) % 96 = номер ячейки
 
-  dps.getPressure(&Pressure);        // Давление
-  dps.getAltitude(&Altitude);        // Высота 
-  dps.getTemperature(&Temperature);  // Температура
-  
-  // tempC = sensors.getTempC(EXT_Thermometer);
+   dps.getPressure(&Pressure);        // Давление
+   dps.getAltitude(&Altitude);        // Высота 
+   dps.getTemperature(&Temperature);  // Температура
    
-  DateTime now = rtc.now();
+   DateTime now = rtc.now();
   
    bmp085_data.unix_time = now.unixtime(); // - (60 * 60 * UTC);
+  
+   sensors.requestTemperatures(); 
+   tempC = sensors.getTempC(EXT_Thermometer);  
        
    bmp085_data.Press = ( bmp085_data.Press + Pressure/133.3 ) / 2.0;
    bmp085_data.Alt   = ( bmp085_data.Alt + Altitude/100.0 ) / 2.0;
@@ -1105,6 +1110,9 @@ void ShowData(boolean s) {
    dps.getAltitude(&Altitude); 
    dps.getTemperature(&Temperature);
 
+  sensors.requestTemperatures(); 
+  tempC = sensors.getTempC(RTC_Thermometer);  
+  
    dtostrf(Altitude/100.0, 4, 2, output);
    strcpy(f,"Alt: ");
    strcat(f,output);
@@ -1192,7 +1200,7 @@ void SetupMenu( void ) {
    strcpy(f[7],"8.GPS NMEA     ");
    strcpy(f[8],"9.Temperature  ");
    strcpy(f[9],"A.Altimeter    ");
-  strcpy(f[10],"B.None         ");
+  strcpy(f[10],"B.BarEepromOut ");
 
    if (DEBUG) { bt.print(F("Menu Position:")); bt.println(X_Menu); }
 
@@ -1430,7 +1438,8 @@ void ShowBMP085(boolean s) {
  if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || (s == true) ) {  
       barPreviousInterval = currentMillis;      
 
-   DateTime now = rtc.now();    
+   DateTime now = rtc.now(); 
+   byte current_position = (now.unixtime()/1800)%96;  
   
    Average<double> bar_data(96); // Вычисление максимального и минимального значения
    
@@ -1506,15 +1515,13 @@ void ShowBMP085(boolean s) {
    lcd.setStr(f,107,88,GREEN,BLACK);
     
    int y_pres = 127;
-   
-   byte current_position = (now.unixtime()/1800)%96; 
     
    for(byte j=0;j<96;j++) {
      
     if (j != 0) {
-     x = map(barArray[current_position],bar_data.minimum(),bar_data.maximum(),106,1);
+     x = map(barArray[current_position],bar_data.minimum()-1,bar_data.maximum()+1,106,1);
     } else {
-     x = map(Pressure/133.3,bar_data.minimum(),bar_data.maximum(),106,1); // Текущие значение
+     x = map(Pressure/133.3,bar_data.minimum()-1,bar_data.maximum()+1,106,1); // Текущие значение
     }
 
     lcd.setLine(0,y_pres,106,y_pres, BLACK); // Стереть линию
