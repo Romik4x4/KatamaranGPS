@@ -556,6 +556,8 @@ void loop() {
    }     
 
 
+  currentMillis = millis();
+
  // --------------------------- GPS -----------------------
   
   if(currentMillis - gpsTrackPI > (FIVE_MINUT/2)) { // Каждые 2.5 минут Save GPS Position
@@ -833,6 +835,8 @@ void Save_Bar_Data( void ) {
    DateTime now = rtc.now();
   
    bmp085_data.unix_time = now.unixtime(); // - (60 * 60 * UTC);
+   
+   BAR_EEPROM_POS = ( (bmp085_data.unix_time/1800)%96 ) * sizeof(bmp085_data); // Номер ячейки памяти.
   
    sensors.requestTemperatures(); 
    tempC = sensors.getTempC(EXT_Thermometer);  
@@ -841,8 +845,6 @@ void Save_Bar_Data( void ) {
    bmp085_data.Alt   = ( bmp085_data.Alt + Altitude/100.0 ) / 2.0;
    bmp085_data.Temp  = ( bmp085_data.Temp + tempC ) / 2.0;
      
-   BAR_EEPROM_POS = ( (bmp085_data.unix_time/1800)%96 ) * sizeof(bmp085_data); // Номер ячейки памяти.
-
    if (DEBUG) {
     bt.println(BAR_EEPROM_POS/sizeof(bmp085_data));
     bt.println(bmp085_data.unix_time);
