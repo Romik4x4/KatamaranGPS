@@ -315,10 +315,10 @@ void setup() {
   
   // Read_Data_BMP_EEPROM(); // Чтение всех данный из EEPROM
 
+  dps.getTemperature(&Temperature);  // Температура
   dps.getPressure(&Pressure);        // Давление
   dps.getAltitude(&Altitude);        // Высота 
-  dps.getTemperature(&Temperature);  // Температура
-
+  
   sensors.requestTemperatures(); 
   tempC = sensors.getTempC(EXT_Thermometer);
   
@@ -363,9 +363,9 @@ void loop() {
   if(currentMillis - updatePreviousInterval > 10000) {  // Каждые 10 секунд
    updatePreviousInterval = currentMillis;  
 
+   dps.getTemperature(&Temperature);  // Температура
    dps.getPressure(&Pressure);        // Давление
    dps.getAltitude(&Altitude);        // Высота 
-   dps.getTemperature(&Temperature);  // Температура
 
    sensors.requestTemperatures(); 
    tempC = sensors.getTempC(EXT_Thermometer);
@@ -825,9 +825,9 @@ void Save_Bar_Data( void ) {
     // 2880 минут / 30 минут = 96 Ячеек
     // (UnixTime / 1800) % 96 = номер ячейки
 
+   dps.getTemperature(&Temperature);  // Температура
    dps.getPressure(&Pressure);        // Давление
    dps.getAltitude(&Altitude);        // Высота 
-   dps.getTemperature(&Temperature);  // Температура
    
    DateTime now = rtc.now();
   
@@ -1105,11 +1105,11 @@ void ShowData(boolean s) {
    
   if ((currentMillis - PreviousInterval > 1000) || (s == true) ) { 
    PreviousInterval = currentMillis;  
-      
+
+   dps.getTemperature(&Temperature);
    dps.getPressure(&Pressure); 
    dps.getAltitude(&Altitude); 
-   dps.getTemperature(&Temperature);
-
+   
   sensors.requestTemperatures(); 
   tempC = sensors.getTempC(RTC_Thermometer);  
   
@@ -1486,6 +1486,7 @@ void ShowBMP085(boolean s) {
    char f[10];
    int x;
    
+   dps.getTemperature(&Temperature);
    dps.getPressure(&Pressure); 
 
    sprintf(f,"%d",(int)bar_data.maximum());
@@ -1692,7 +1693,9 @@ void ShowBMP085Alt(boolean s) {
    char f[10];
    int x;
    
-   dps.getAltitude(&Altitude); // Текущие значение Высоты
+    dps.getTemperature(&Temperature);
+    dps.getPressure(&Pressure); 
+    dps.getAltitude(&Altitude); // Текущие значение Высоты
 
    sprintf(f,"%d",(int)alt_data.maximum());
    lcd.setStr(f,0,3,WHITE,BLACK);
