@@ -319,7 +319,6 @@ void setup() {
   dps.getAltitude(&Altitude);        // Высота 
   dps.getTemperature(&Temperature);  // Температура
 
-
   sensors.requestTemperatures(); 
   tempC = sensors.getTempC(EXT_Thermometer);
   
@@ -576,7 +575,7 @@ void loop() {
      rtc.writeSqwPinMode(OFF);             // Выключаем синий светодиод на DS1307
      set_GPS_DateTime();
    } 
-     if (battary() < 4.0) { // Если идет зарядка то можео включить
+     if (battary() < 4.0) { // Если идет зарядка то можно включить
       rtc.writeSqwPinMode(OFF); 
      } else {
       rtc.writeSqwPinMode(SquareWave1HZ);   // Включаем синий светодиод на DS1307
@@ -618,9 +617,7 @@ void Save_GPS_Pos( void ) {
    gps_tracker.months  = gps.date.month();
    gps_tracker.years   = gps.date.year();
    gps_tracker.minutes = gps.time.minute();
-   gps_tracker.hours   = gps.time.hour() + UTC;
-  
-   if (gps_tracker.hours > 23)  gps_tracker.hours = gps_tracker.hours - 24;
+   gps_tracker.hours   = utc(gps.time.hour());
           
      const byte* p = (const byte*)(const void*)&gps_tracker;
      for (unsigned int i = 0; i < sizeof(gps_tracker); i++) 
@@ -1028,6 +1025,7 @@ void setDateTime() {
 byte utc(byte In_Hours) {
   
   In_Hours = In_Hours + UTC;
+  
   if (In_Hours > 23)  In_Hours = In_Hours - 24;
   
   return(In_Hours);
@@ -1087,7 +1085,7 @@ void Analog_Time_Clock( void ) {
     
     byte seconds = now.second();
     byte minutes = now.minute();
-    byte hours = now.hour();
+    byte hours   = now.hour();
    
     drawClock();
    
@@ -1441,6 +1439,7 @@ void ShowBMP085(boolean s) {
       barPreviousInterval = currentMillis;      
 
    DateTime now = rtc.now(); 
+   
    byte current_position = (now.unixtime()/1800)%96;  
   
    Average<double> bar_data(96); // Вычисление максимального и минимального значения
