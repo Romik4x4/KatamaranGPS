@@ -28,6 +28,7 @@
 #include <RTClib.h>
 #include <Average.h>
 
+
 #define DEBUG 0
 
 RTC_DS1307 rtc;  // DS1307 RTC Real Time Clock
@@ -343,6 +344,7 @@ void setup() {
   start = true; // Для того чтобы вернуть сохраненый дисплай и обновить его.
   
   if (DEBUG) bt.println("Debug ON...");
+  
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -564,7 +566,7 @@ void loop() {
    Save_GPS_Pos();  // Save GPS Position
   }
   
-  if(currentMillis - BarSavePreviousInterval > (FIVE_MINUT*3)) { //*4 Каждые 20 минут Save BAR Parameters 
+  if(currentMillis - BarSavePreviousInterval > (FIVE_MINUT*3)) { //*3 //*4 Каждые 20 минут Save BAR Parameters 
    BarSavePreviousInterval = currentMillis;
    Save_Bar_Data(); // Save BMP_085 Data  
   }
@@ -617,7 +619,7 @@ void Save_GPS_Pos( void ) {
    gps_tracker.months  = gps.date.month();
    gps_tracker.years   = gps.date.year();
    gps_tracker.minutes = gps.time.minute();
-   gps_tracker.hours   = utc(gps.time.hour());
+   gps_tracker.hours   = gps.time.hour();
           
      const byte* p = (const byte*)(const void*)&gps_tracker;
      for (unsigned int i = 0; i < sizeof(gps_tracker); i++) 
@@ -831,7 +833,15 @@ void Save_Bar_Data( void ) {
    
    DateTime now = rtc.now();
   
-   bmp085_data.unix_time = now.unixtime(); // - (60 * 60 * UTC);
+   bmp085_data.unix_time = now.unixtime(); 
+   
+   // DEBUG
+   
+   if (DEBUG) {
+     bt.print("h:"); bt.println(now.hour());
+     bt.print("m:"); bt.println(now.minute());
+     bt.print("p:"); bt.println((bmp085_data.unix_time/1800)%96);
+   }
    
    BAR_EEPROM_POS = ( (bmp085_data.unix_time/1800)%96 ) * sizeof(bmp085_data); // Номер ячейки памяти.
   
@@ -991,85 +1001,26 @@ byte bcdToDec(byte val) {
 void setDateTime() {
 
   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  
-  /*
-  
-  byte second =      00; //0-59
-  byte minute =      00; //0-59
-  byte hour =        12; //0-23
-  byte weekDay =      1; //1-7
-  byte monthDay =    17; //1-31
-  byte month =       11; //1-12
-  byte year  =       14; //0-99
 
-  Wire.beginTransmission(DS1307_ADDRESS);
-  Wire.write(0);
-
-  Wire.write(decToBcd(second));
-  Wire.write(decToBcd(minute));
-  Wire.write(decToBcd(hour));
-  Wire.write(decToBcd(weekDay));
-  Wire.write(decToBcd(monthDay));
-  Wire.write(decToBcd(month));
-  Wire.write(decToBcd(year));
-
-  Wire.write(0); 
-  Wire.endTransmission();
-  
-  */
-
-}
-
-// ---------------------------- Изменить часы на GMT -------------------------------
-
-byte utc(byte In_Hours) {
-  
-  In_Hours = In_Hours + UTC;
-  
-  if (In_Hours > 23)  In_Hours = In_Hours - 24;
-  
-  return(In_Hours);
-  
 }
 
 // ---------------------------- Установка времени через GPS ------------------------
 
 void set_GPS_DateTime() {
-
-  // January 21, 2014 at 3am you would call:
-  // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
-  
+   
  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
 
-  byte seconds =   gps.time.second();
-  byte minutes =   gps.time.minute();
-  byte hours =     gps.time.hour();
+   DateTime utc = (DateTime (gps.date.year(), 
+                             gps.date.month(), 
+                             gps.date.day(),
+                             gps.time.hour(),
+                             gps.time.minute(),
+                             gps.time.second()) + 60 * 60 * UTC);
+                                
+  rtc.adjust(DateTime(utc.unixtime()));
   
-  hours = utc(hours);
+ }
   
-  byte weekDay =   1;
-  byte monthDay =  gps.date.day();
-  byte months =    gps.date.month();
-
-  rtc.adjust(DateTime(gps.date.year(), months, monthDay, hours, minutes, seconds));
-  
-/*
-  Wire.beginTransmission(DS1307_ADDRESS);
-  Wire.write(0);
-
-  Wire.write(decToBcd(seconds));
-  Wire.write(decToBcd(minutes));
-  Wire.write(decToBcd(hours));
-  Wire.write(decToBcd(weekDay));
-  Wire.write(decToBcd(monthDay));
-  Wire.write(decToBcd(months));
-  Wire.write(decToBcd(years));
-
-  Wire.write(0); 
-  Wire.endTransmission();
-*/
-  
-  }
 }
 
 
@@ -1268,11 +1219,8 @@ void ShowDataGPS(boolean s) {
     
 
     if (gps.date.isValid() && gps.time.isValid()) {
-            
-      byte h = gps.time.hour();
-      h = utc(h);
       
-      sprintf(f,"gTime:%.2d:%.2d:%.2d",h,gps.time.minute(),gps.time.second());
+      sprintf(f,"gTime:%.2d:%.2d:%.2d",gps.time.hour(),gps.time.minute(),gps.time.second());
       lcd.setStr(f,45,2,WHITE, BLACK);              
       sprintf(f,"gDate:%.2d/%.2d/%.2d",gps.date.day(),gps.date.month(),gps.date.year());
       lcd.setStr(f,60,2,WHITE, BLACK);        
@@ -1309,8 +1257,8 @@ void ShowDataGPS(boolean s) {
 
 void ShowDataSun( boolean s) { 
   
-  DateTime now = rtc.now();
-      
+  DateTime now = rtc.now(); // Time from DS1307
+  
   byte m_set=0,h_set=0;
   byte m_rise=0,d,h_rise=0;
   int t;   
@@ -1357,10 +1305,23 @@ void ShowDataSun( boolean s) {
   
   if (gps.date.isValid() && gps.time.isValid()) {
             
-      sprintf(f,"gTime:%.2d:%.2d:%.2d",utc(gps.time.hour()),gps.time.minute(),gps.time.second());
+      sprintf(f,"gTime:%.2d:%.2d:%.2d",gps.time.hour(),gps.time.minute(),gps.time.second());
       lcd.setStr(f,60+7,2,WHITE, BLACK);              
       sprintf(f,"gDate:%.2d/%.2d/%.2d",gps.date.day(),gps.date.month(),gps.date.year());
       lcd.setStr(f,75+7,2,WHITE, BLACK);        
+      
+      DateTime utc = (DateTime (gps.date.year(), 
+                                gps.date.month(), 
+                                gps.date.day(),
+                                gps.time.hour(),
+                                gps.time.minute(),
+                                gps.time.second()) + 60 * 60 * UTC);
+
+      // Convert GPS to LocalTime + UTC
+      
+      sprintf(f,"UTC:%.2d:%.2d:%.2d",utc.hour(),utc.minute(),utc.second());
+      lcd.setStr(f,90+10,2,WHITE, RED);
+              
 
     } else {
       
