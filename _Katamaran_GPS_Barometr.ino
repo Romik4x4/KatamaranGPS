@@ -400,7 +400,12 @@ void setup() {
   
   if (wifi.joinAP(SSID, PASSWORD)) {        
     wifi_status = true;
+  } else {
+    if (wifi.joinAP(SSID1, PASSWORD1)) {        
+    wifi_status = true;
+    }
   }
+    
   
     wifi.enableMUX();
     wifi.startTCPServer(80);
@@ -1872,7 +1877,13 @@ void get_ip( void ) {
 
 void send_nmea_wifi(char *out_nmea ) {
    
-  bt.print(out_nmea);
+  if (DEBUG) bt.print(out_nmea);
+  
+  int i;
+ 
+  for (i=0;i<strlen(out_nmea);i++) {
+    if (out_nmea[i] == '\r') out_nmea[i] = '\0';
+  }
   
   String host = "62.113.122.5";
   
