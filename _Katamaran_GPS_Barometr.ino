@@ -1,9 +1,31 @@
 
-///////////////////////////////////////
-// Arduino 1.0.6                     //
-// ATMega 1284P (4K Bytes EEPROM)    //
-// Update: 9.01.2015                 //
-///////////////////////////////////////
+//*******************************************************
+// Arduino 1.0.6                     
+// ATMega 1284P (4K Bytes EEPROM)   
+// Update: 25.09.2015                
+//*******************************************************
+
+// #define _SS_MAX_RX_BUFF 64 // RX buffer size => 256
+// SoftwareSerial.h Изменить размер RX буфера.
+
+// ESP 8266 Version
+
+// AT version:0.22.0.0(Mar 20 2015 10:04:26)
+// SDK version:1.0.0
+// compile time:Mar 20 2015 11:00:32
+
+//  AT+CWSAP_DEF="GPS","",6,0
+//  AT+CWSAP_CUR="GPS","",6,0
+
+//  AT+CWMODE=3  Soft_AP + Client
+// AT+CIPMUX=1 Много соединений
+// AT+CIPSERVER=1,80  Сервер на 80 порту
+
+// https://github.com/itead/ITEADLIB_Arduino_WeeESP8266
+// 
+// #define USER_SEL_VERSION	VERSION_22
+// #define ESP8266_USE_SOFTWARE_SERIAL
+
 
   //  0.0
   //   --------------------------> Y
@@ -13,6 +35,7 @@
   //   v
   //   X
   
+#include <ESP8266.h>
 #include <TinyGPS++.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -27,7 +50,6 @@
 #include <I2C_eeprom.h>
 #include <RTClib.h>
 #include <Average.h>
-
 
 #define DEBUG 0
 
@@ -96,7 +118,6 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 
 #define DISPLAY_10 10000001 // Температура
 #define DISPLAY_11 10000002 // Алтиметр
-
 
 #define DOWN   1
 #define UP     2
@@ -260,6 +281,20 @@ boolean page2 = false; // Мы на второй странице
 
 float tempC; // Температура внешнего датчика
 
+// --------------------------- ESP8266 ------------------------------------
+
+// Open the file from \arduino\hardware\arduino\avr\cores\arduino\HardwareSerial.h. 
+// See the follow line in the HardwareSerial.h file.
+// #define SERIAL_BUFFER_SIZE 64
+// The default size of the buffer is 64. Change it into a bigger number, like 256 or more.
+
+ESP8266 wifi(Serial);
+
+char pip[16],aip[16];  // IP Addresess
+
+#define SSID                "OS"
+#define PASSWORD    "4957392716"
+
 // --------------------------------- SETUP ---------------------------------
 
 void setup() {
@@ -308,6 +343,7 @@ void setup() {
   // rtc.writeSqwPinMode(OFF); // Для экономии 10 мА
   // digitalWrite(CPU_LED,HIGH);
 
+  Serial.begin(57600); // ESP8266 Wi-Fi
   Serial1.begin(4800);  // GPS EM-406
  
   bt.begin(9600);       // Bluetooth
@@ -344,6 +380,21 @@ void setup() {
   start = true; // Для того чтобы вернуть сохраненый дисплай и обновить его.
   
   if (DEBUG) bt.println("Debug ON...");
+  
+  if (wifi.kick()) {  // Если Wi-Fi ESP8266 модуль подключен.
+  
+  wifi.setOprToStationSoftAP();
+  strcpy(pip,"0.0.0.0");
+  strcpy(aip,"0.0.0.0");
+  
+  if (wifi.joinAP(SSID, PASSWORD)) {    
+    get_ip();
+    wifi.enableMUX();
+    wifi.startTCPServer(80);
+    wifi.setTCPServerTimeout(10);
+  }
+  
+  } // End Of Wi-Fi Setup.
   
 }
 
@@ -1731,4 +1782,23 @@ void erase_gps_track( void ) {
  
   
 }
+
+// --------------------------------------------------------------------------------------------------
+
+void get_ip( void ) {
+  
+    char s[128];
+    char *token;
+    const char delimiters[] = "\":";
+
+    strcpy(s,wifi.getLocalIP().c_str());
+    
+    token = strtok (s, delimiters);     
+
+    while(token != NULL) {
+      if  (strstr(token,"PIP")) strcpy(pip,strtok (NULL, delimiters)); 
+      if  (strstr(token,"AIP")) strcpy(aip,strtok (NULL, delimiters)); 
+      token = strtok (NULL, delimiters);   
+    }
+  }
 
