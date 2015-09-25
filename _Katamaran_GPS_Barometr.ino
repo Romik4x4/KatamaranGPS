@@ -304,6 +304,8 @@ boolean wifi_status = false;
 char str_nmea[100];
 unsigned int nmea_pos;
 boolean nmea_start=false;
+boolean nmea_ready = false;
+boolean wifi_connected = false;
 
 // --------------------------------- SETUP ---------------------------------
 
@@ -421,21 +423,24 @@ void setup() {
 
 void loop() {
   
-  
-   if (Serial1.available()) {
+     if (Serial1.available()) {
     nmea = Serial1.read();
     gps.encode(nmea);
-    if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);       
-
+    if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);      
+    
+    if (GPS_OUT)  nmea_to_wifi(nmea);
+    
+if (nmea_ready == false) {
+  
     if (nmea == '$')  { nmea_pos = 0; nmea_start=true; }    
     
     if (nmea_start == true) {
      str_nmea[nmea_pos] = nmea; 
      nmea_pos++; 
-     if (nmea == '\n') {
+     if (nmea == '\n') { // End of NMEA string
        nmea_start = false;
        if (nmea_pos < 99) str_nmea[nmea_pos] = '\0'; else str_nmea[99] = '\0';
-       // Send NMEA
+       nmea_ready = true;     
      }
     }
     
@@ -444,6 +449,8 @@ void loop() {
       nmea_pos =0;
       nmea_start =  false;
     }
+  } // if nmea_ready == false
+  
    } // If GPS Data is coming
      
      
@@ -652,6 +659,11 @@ void loop() {
   if(currentMillis - gpsTrackPI > (FIVE_MINUT/2)) { // Каждые 2.5 минут Save GPS Position
    gpsTrackPI = currentMillis;  
    Save_GPS_Pos();  // Save GPS Position
+   if (!GPS_OUT) {
+    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+      if (nmea_ready) { send_nmea_wifi(str_nmea); nmea_ready = false; }
+     }
+   }
   }
   
   if(currentMillis - BarSavePreviousInterval > (FIVE_MINUT*3)) { //*3 //*4 Каждые 20 минут Save BAR Parameters 
@@ -666,8 +678,6 @@ void loop() {
      rtc.writeSqwPinMode(OFF);             // Выключаем синий светодиод на DS1307
      set_GPS_DateTime();     
    }
-  
-   send_nmea_wifi(str_nmea);
    
      if (battary() < 4.0) { // Если идет зарядка то можно включить
       rtc.writeSqwPinMode(OFF); 
@@ -1905,4 +1915,29 @@ void send_nmea_wifi(char *out_nmea ) {
     wifi.send(muxid, (const uint8_t*)snd, strlen(snd) );
     
     wifi.releaseTCP(muxid); 
+}
+
+// ---------------------- NMEA to Wi-Fi ----------------------------
+
+void nmea_to_wifi( char char_nmea ) {
+
+  uint8_t buffer[128] = {0};
+  uint8_t mux_id;
+  uint32_t len = 0;
+  
+  char s[1];
+  
+  s[0] = char_nmea;
+
+ if (!wifi_connected) {
+  len = wifi.recv(&mux_id, buffer, sizeof(buffer), 100);
+  if (len > 0) wifi_connected = true;
+ }
+  
+  if (wifi_connected) {
+   if (!wifi.send(mux_id, (const uint8_t*)s, strlen(s) )) {
+        wifi.releaseTCP(mux_id);
+        wifi_connected = false;     
+   }
+ }
 }
