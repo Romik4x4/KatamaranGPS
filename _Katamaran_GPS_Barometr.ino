@@ -307,6 +307,11 @@ boolean nmea_start=false;
 boolean nmea_ready = false;
 boolean wifi_connected = false;
 
+  uint8_t buffer[128] = {0};
+  uint8_t mux_id;
+  uint32_t len = 0;
+  
+  
 // --------------------------------- SETUP ---------------------------------
 
 void setup() {
@@ -407,14 +412,19 @@ void setup() {
     wifi_status = true;
     }
   }
-    
-  
+     
     wifi.enableMUX();
     wifi.startTCPServer(80);
     wifi.setTCPServerTimeout(10);
    
   } // End Of Wi-Fi Setup.
-  
+   
+   if (wifi.kick()) {
+     lcd.clear(BLACK);;
+     get_ip();
+     delay(500);
+     lcd.clear(BLACK);
+   }
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -424,8 +434,10 @@ void setup() {
 void loop() {
   
      if (Serial1.available()) {
-    nmea = Serial1.read();
-    gps.encode(nmea);
+    
+       nmea = Serial1.read();
+       gps.encode(nmea);
+    
     if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);      
     
     if (GPS_OUT)  nmea_to_wifi(nmea);
@@ -1921,10 +1933,6 @@ void send_nmea_wifi(char *out_nmea ) {
 
 void nmea_to_wifi( char char_nmea ) {
 
-  uint8_t buffer[128] = {0};
-  uint8_t mux_id;
-  uint32_t len = 0;
-  
   char s[1];
   
   s[0] = char_nmea;
@@ -1935,9 +1943,10 @@ void nmea_to_wifi( char char_nmea ) {
  }
   
   if (wifi_connected) {
-   if (!wifi.send(mux_id, (const uint8_t*)s, strlen(s) )) {
+   if (!wifi.send(mux_id, (uint8_t*)s, strlen(s) )) {
         wifi.releaseTCP(mux_id);
         wifi_connected = false;     
+        len = 0;
    }
  }
 }
