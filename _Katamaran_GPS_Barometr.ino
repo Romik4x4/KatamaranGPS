@@ -306,11 +306,7 @@ unsigned int nmea_pos;
 boolean nmea_start=false;
 boolean nmea_ready = false;
 boolean wifi_connected = false;
-
-  uint8_t buffer[128] = {0};
-  uint8_t mux_id;
-  uint32_t len = 0;
-  
+uint8_t mux_id;
   
 // --------------------------------- SETUP ---------------------------------
 
@@ -438,9 +434,11 @@ void loop() {
        nmea = Serial1.read();
        gps.encode(nmea);
     
-    if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);      
+   if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);      
     
-    if (GPS_OUT)  nmea_to_wifi(nmea);
+    if (Serial.available()) {
+      if (GPS_OUT)  nmea_to_wifi(nmea);
+     }
     
 if (nmea_ready == false) {
   
@@ -672,9 +670,11 @@ if (nmea_ready == false) {
    gpsTrackPI = currentMillis;  
    Save_GPS_Pos();  // Save GPS Position
    if (!GPS_OUT) {
-    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
-      if (nmea_ready) { send_nmea_wifi(str_nmea); nmea_ready = false; }
+    if (wifi_status) {
+     if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+       if (nmea_ready) { send_nmea_wifi(str_nmea); nmea_ready = false; }
      }
+    }
    }
   }
   
@@ -1937,13 +1937,16 @@ void nmea_to_wifi( char char_nmea ) {
   
   s[0] = char_nmea;
 
+   uint8_t buffer[128] = {0};
+   uint32_t len = 0;
+  
  if (!wifi_connected) {
   len = wifi.recv(&mux_id, buffer, sizeof(buffer), 100);
   if (len > 0) wifi_connected = true;
  }
   
   if (wifi_connected) {
-   if (!wifi.send(mux_id, (uint8_t*)s, strlen(s) )) {
+   if (!wifi.send(mux_id, (const uint8_t*)s, strlen(s) )) {
         wifi.releaseTCP(mux_id);
         wifi_connected = false;     
         len = 0;
