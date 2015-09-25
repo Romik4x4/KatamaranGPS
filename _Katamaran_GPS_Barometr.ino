@@ -104,6 +104,7 @@ struct bmp085_out // Данные о давлении,высоте и темпе
     unsigned long unix_time; 
     
 } bmp085_data_out;
+
 //---------------- IR Кнопки --------------------------
 
 #define DISPLAY_1 16724175 // 1 Analog Clock
@@ -169,7 +170,7 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 
 #define DISPLAY_MENU 1 // Если включен режим SetupMenu()
 
-#define MAX_MENU     11 // Всего Меню на экране 1-MAX_MENU
+#define MAX_MENU     12 // Всего Меню на экране 1-MAX_MENU
 #define MAX_DISPLAY  8  // Максимальое количество меню на экране
 
 // BOX G218C Chip-Dip
@@ -295,6 +296,15 @@ char pip[16],aip[16];  // IP Addresess
 #define SSID                "OS"
 #define PASSWORD    "4957392716"
 
+#define SSID1                "Romik"
+#define PASSWORD1    "12915007961379"
+
+boolean wifi_status = false;
+
+char str_nmea[100];
+unsigned int nmea_pos;
+boolean nmea_start=false;
+
 // --------------------------------- SETUP ---------------------------------
 
 void setup() {
@@ -383,17 +393,19 @@ void setup() {
   
   if (wifi.kick()) {  // Если Wi-Fi ESP8266 модуль подключен.
   
-  wifi.setOprToStationSoftAP();
+    wifi.setOprToStationSoftAP();
+  
   strcpy(pip,"0.0.0.0");
   strcpy(aip,"0.0.0.0");
   
-  if (wifi.joinAP(SSID, PASSWORD)) {    
-    get_ip();
+  if (wifi.joinAP(SSID, PASSWORD)) {        
+    wifi_status = true;
+  }
+  
     wifi.enableMUX();
     wifi.startTCPServer(80);
     wifi.setTCPServerTimeout(10);
-  }
-  
+   
   } // End Of Wi-Fi Setup.
   
 }
@@ -409,7 +421,26 @@ void loop() {
     nmea = Serial1.read();
     gps.encode(nmea);
     if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);       
-   }
+
+    if (nmea == '$')  { nmea_pos = 0; nmea_start=true; }    
+    
+    if (nmea_start == true) {
+     str_nmea[nmea_pos] = nmea; 
+     nmea_pos++; 
+     if (nmea == '\n') {
+       nmea_start = false;
+       if (nmea_pos < 99) str_nmea[nmea_pos] = '\0'; else str_nmea[99] = '\0';
+       // Send NMEA
+     }
+    }
+    
+    if (nmea_pos==99) { 
+      str_nmea[nmea_pos] = '\0';
+      nmea_pos =0;
+      nmea_start =  false;
+    }
+   } // If GPS Data is coming
+     
      
    currentMillis = millis();
 
@@ -476,6 +507,7 @@ void loop() {
        case 9:  results.value = DISPLAY_10; break;
        case 10: results.value = DISPLAY_11; break;
        case 11: Read_Data_BMP_EEPROM(); break;
+       case 12: get_ip(); break;
 
       }
      }  
@@ -624,10 +656,14 @@ void loop() {
  
   if(currentMillis - loopPreviousInterval > FIVE_MINUT) {  // Каждые 5 минут [300000]
    loopPreviousInterval = currentMillis;     
+   
    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
      rtc.writeSqwPinMode(OFF);             // Выключаем синий светодиод на DS1307
-     set_GPS_DateTime();
-   } 
+     set_GPS_DateTime();     
+   }
+  
+   send_nmea_wifi(str_nmea);
+   
      if (battary() < 4.0) { // Если идет зарядка то можно включить
       rtc.writeSqwPinMode(OFF); 
      } else {
@@ -1203,6 +1239,8 @@ void SetupMenu( void ) {
    strcpy(f[8],"9.Temperature  ");
    strcpy(f[9],"A.Altimeter    ");
   strcpy(f[10],"B.BarEepromOut ");
+  strcpy(f[11],"C.Wi-Fi        ");
+  
 
    if (DEBUG) { bt.print(F("Menu Position:")); bt.println(X_Menu); }
 
@@ -1787,11 +1825,30 @@ void erase_gps_track( void ) {
 
 void get_ip( void ) {
   
+  
     char s[128];
     char *token;
     const char delimiters[] = "\":";
+    unsigned long start;
+    int  i = 0;
+    
+    lcd.clear(BLACK);
+    strcpy(s,"IP Addresses");
+    lcd.setStr(s,0,2,WHITE, BLACK);  
 
-    strcpy(s,wifi.getLocalIP().c_str());
+        start = millis();
+        Serial.print("AT+CIFSR\r\n");
+        while (millis() - start < 3000) {
+          if (Serial.available()) { 
+            s[i] = Serial.read(); 
+             i++; 
+             if (i == 127) { 
+              s[i] = '\0'; 
+              break; 
+             }
+          }
+        }
+        s[i] = '\0';
     
     token = strtok (s, delimiters);     
 
@@ -1799,6 +1856,42 @@ void get_ip( void ) {
       if  (strstr(token,"PIP")) strcpy(pip,strtok (NULL, delimiters)); 
       if  (strstr(token,"AIP")) strcpy(aip,strtok (NULL, delimiters)); 
       token = strtok (NULL, delimiters);   
-    }
+    }    
+    
+        lcd.setStr(pip,15,2,WHITE, BLACK);  
+        lcd.setStr(aip,30,2,WHITE, BLACK);  
+        
+        if (wifi_status) {
+          lcd.setStr("Wi-Fi Connected",45,2,WHITE, BLACK);          
+        } else {
+          lcd.setStr("Wi-Fi Error    ",45,2,WHITE, BLACK);  
+        }
   }
 
+// ---------------------------------- Send GPS over HTTP to a.pajero.su -------------------
+
+void send_nmea_wifi(char *out_nmea ) {
+   
+  bt.print(out_nmea);
+  
+  String host = "62.113.122.5";
+  
+  uint32_t port = 80;
+  
+  static uint8_t muxid = 0; 
+  
+  wifi.createTCP(muxid,host,port);
+  
+  char snd[128];
+   
+    strcpy(snd,"GET /e.php?nmea=");
+    strcat(snd,out_nmea);
+    wifi.send(muxid, (const uint8_t*)snd, strlen(snd) );
+    
+    strcpy(snd," HTTP/1.1\r\n");
+    strcat(snd,"Host: a.pajero.su\r\n");
+    strcat(snd,"Connection: close\r\n\r\n");
+    wifi.send(muxid, (const uint8_t*)snd, strlen(snd) );
+    
+    wifi.releaseTCP(muxid); 
+}
