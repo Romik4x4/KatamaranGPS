@@ -665,6 +665,7 @@ void loop() {
         if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true;
         configuration.GPS_OUT = GPS_OUT;
         EEPROM_writeAnything(0, configuration);
+        lcd.clear(BLACK);
         SetupMenu();                
       }
       break;
