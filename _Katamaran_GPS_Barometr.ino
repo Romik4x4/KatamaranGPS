@@ -170,7 +170,7 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 
 #define DISPLAY_MENU 1 // Если включен режим SetupMenu()
 
-#define MAX_MENU     12 // Всего Меню на экране 1-MAX_MENU
+#define MAX_MENU     13 // Всего Меню на экране 1-MAX_MENU
 #define MAX_DISPLAY  8  // Максимальое количество меню на экране
 
 // BOX G218C Chip-Dip
@@ -299,6 +299,9 @@ char pip[16],aip[16];  // IP Addresess
 #define SSID1                "Romik"
 #define PASSWORD1    "12915007961379"
 
+#define SSID2                "RomikTP"
+#define PASSWORD2    "12915007961379"
+
 boolean wifi_status = false;
 
 char str_nmea[100];
@@ -307,6 +310,7 @@ boolean nmea_start=false;
 boolean nmea_ready = false;
 boolean wifi_connected = false;
 uint8_t mux_id;
+boolean GPS_NMEA_OUT = false; // Разрешение на вывод NMEA over TCP/IP
   
 // --------------------------------- SETUP ---------------------------------
 
@@ -398,29 +402,27 @@ void setup() {
   
     wifi.setOprToStationSoftAP();
   
-  strcpy(pip,"0.0.0.0");
-  strcpy(aip,"0.0.0.0");
+    strcpy(pip,"0.0.0.0");
+    strcpy(aip,"0.0.0.0");
   
-  if (wifi.joinAP(SSID, PASSWORD)) {        
-    wifi_status = true;
-  } else {
-    if (wifi.joinAP(SSID1, PASSWORD1)) {        
-    wifi_status = true;
-    }
-  }
-     
+    lcd.clear(BLACK);
+    lcd.setStr("Looking Wi-Fi",0,2,WHITE, BLACK);  
+  
+    if (wifi.joinAP(SSID, PASSWORD)) wifi_status = true;
+    if (!wifi_status) wifi_status = wifi.joinAP(SSID1, PASSWORD1);
+    if (!wifi_status) wifi_status = wifi.joinAP(SSID2, PASSWORD2);
+  
     wifi.enableMUX();
     wifi.startTCPServer(80);
     wifi.setTCPServerTimeout(10);
-   
-  } // End Of Wi-Fi Setup.
-   
-   if (wifi.kick()) {
+      
      lcd.clear(BLACK);;
      get_ip();
-     delay(500);
+     delay(700);
      lcd.clear(BLACK);
-   }
+     
+  } // End Of Wi-Fi Setup.
+   
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -434,13 +436,13 @@ void loop() {
        nmea = Serial1.read();
        gps.encode(nmea);
     
-   if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);      
+    if (GPS_OUT && (digitalRead(BT_CONNECT) == HIGH)) bt.print(nmea);      
     
     if (Serial.available()) {
-      if (GPS_OUT)  nmea_to_wifi(nmea);
+      if (GPS_NMEA_OUT)  nmea_to_wifi(nmea);
      }
     
-if (nmea_ready == false) {
+  if (nmea_ready == false) {
   
     if (nmea == '$')  { nmea_pos = 0; nmea_start=true; }    
     
@@ -521,15 +523,23 @@ if (nmea_ready == false) {
        case 6: results.value = DISPLAY_7; break;
        case 7: results.value = DISPLAY_8; break;       
        case 8: 
-               if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true; 
-               results.value = DISPLAY_2; 
-               configuration.GPS_OUT = GPS_OUT;
-               EEPROM_writeAnything(0, configuration);
+               if (!GPS_NMEA_OUT) {
+                 if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true; 
+                 results.value = DISPLAY_2; 
+                 configuration.GPS_OUT = GPS_OUT;
+                 EEPROM_writeAnything(0, configuration);
+               }
                break;
        case 9:  results.value = DISPLAY_10; break;
        case 10: results.value = DISPLAY_11; break;
        case 11: Read_Data_BMP_EEPROM(); break;
        case 12: get_ip(); break;
+       case 13: 
+                if (!GPS_OUT) {
+                  if (GPS_NMEA_OUT) GPS_NMEA_OUT = false; else GPS_NMEA_OUT = true;
+                  results.value = DISPLAY_2;
+                }
+                break;
 
       }
      }  
@@ -651,9 +661,12 @@ if (nmea_ready == false) {
       
       
      case DISPLAY_9:
-      if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true;
-      configuration.GPS_OUT = GPS_OUT;
-      EEPROM_writeAnything(0, configuration);
+      if (!GPS_NMEA_OUT) {
+        if (GPS_OUT) GPS_OUT = false; else GPS_OUT = true;
+        configuration.GPS_OUT = GPS_OUT;
+        EEPROM_writeAnything(0, configuration);
+        SetupMenu();                
+      }
       break;
       
     }
@@ -669,11 +682,11 @@ if (nmea_ready == false) {
   if(currentMillis - gpsTrackPI > (FIVE_MINUT/2)) { // Каждые 2.5 минут Save GPS Position
    gpsTrackPI = currentMillis;  
    Save_GPS_Pos();  // Save GPS Position
-   if (!GPS_OUT) {
+   if (!GPS_OUT && !GPS_NMEA_OUT) { 
     if (wifi_status) {
-     if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+   //  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
        if (nmea_ready) { send_nmea_wifi(str_nmea); nmea_ready = false; }
-     }
+ //    }
     }
    }
   }
@@ -698,7 +711,7 @@ if (nmea_ready == false) {
      }
   }
   
- if (GPS_OUT) {  
+ if (GPS_OUT || GPS_NMEA_OUT) {  
   if(currentMillis - gps_out_pi > 250) {    
    gps_out_pi = currentMillis;  
    if (GPS_OUT_LED) {  
@@ -857,7 +870,7 @@ void GPS_Track_Output( void ) {
 
 // --------------------------- Output BMP_085 DATA from EEPROM -----------------------------------
 
-void Read_Data_BMP_EEPROM( void ) {
+void Read_Data_BMP_EEPROM( void ) {  // MENU:BarEepromOut
   
    Average<double> bar_data(96); // Вычисление максимального и минимального значения
    Average<double> alt_data(96); // Вычисление максимального и минимального значения
@@ -865,7 +878,7 @@ void Read_Data_BMP_EEPROM( void ) {
    
    BAR_EEPROM_POS = 0;
 
-   lcd.setRect(70,20, 100, 116, 0, WHITE); // Рисуем квадрат пустой
+   lcd.setRect(70+10,20, 100+10, 116, 0, WHITE); // Рисуем квадрат пустой
  
    bt.println("--------------- START -----------------------");
     
@@ -873,7 +886,7 @@ void Read_Data_BMP_EEPROM( void ) {
     
    for(byte j=0;j<96;j++) {
      
-   lcd.setLine(70,20+j,100,20+j,WHITE); // Заливаем i=0 to i=95
+   lcd.setLine(70+10,20+j,100+10,20+j,WHITE); // Заливаем i=0 to i=95
                  
     byte* pp = (byte*)(void*)&bmp085_data_out; 
     for (unsigned int i = 0; i < sizeof(bmp085_data_out); i++)
@@ -930,7 +943,7 @@ void Read_Data_BMP_EEPROM( void ) {
    
    BAR_EEPROM_POS = 0;
     
-   lcd.setRect(70,20, 101, 117, 1, BLACK); // Удаляем весь квадрат
+   lcd.setRect(70+10,20, 101+10, 117, 1, BLACK); // Удаляем весь квадрат
     
 }
 // --------------------------- Save Barometer Data to EEPROM -------------------------------------
@@ -1255,6 +1268,8 @@ void SetupMenu( void ) {
   text[X_Menu-1] = BLACK; 
     bg[X_Menu-1] = WHITE;
   
+  // Длина 15 символов
+  
    strcpy(f[0],"1.Analog Clock ");      
    strcpy(f[1],"2.Voltmeter    ");   
    strcpy(f[2],"3.BMP/GPS Data ");   
@@ -1266,8 +1281,8 @@ void SetupMenu( void ) {
    strcpy(f[8],"9.Temperature  ");
    strcpy(f[9],"A.Altimeter    ");
   strcpy(f[10],"B.BarEepromOut ");
-  strcpy(f[11],"C.Wi-Fi        ");
-  
+  strcpy(f[11],"C.Wi-Fi Stat   ");
+  strcpy(f[12],"D.Wi-Fi NMEA   ");
 
    if (DEBUG) { bt.print(F("Menu Position:")); bt.println(X_Menu); }
 
@@ -1281,10 +1296,11 @@ void SetupMenu( void ) {
      
      if (pos > MAX_MENU-1) break;
      
-     if (GPS_OUT && pos == 7) // Только для просмотра что влючено NMEA OUTPUT
+     if ((GPS_OUT && pos == 7) || (GPS_NMEA_OUT && pos == 12)) // Только для просмотра что влючено NMEA OUTPUT
       lcd.setStr(f[pos],y*15,10,WHITE,RED);
      else 
       lcd.setStr(f[pos], y*15, 10,text[pos],bg[pos]);
+      
       pos++;
       y++;
      
