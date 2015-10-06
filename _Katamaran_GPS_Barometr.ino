@@ -684,9 +684,9 @@ void loop() {
    Save_GPS_Pos();  // Save GPS Position
    if (!GPS_OUT && !GPS_NMEA_OUT) { 
     if (wifi_status) {
-   //  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+     if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
        if (nmea_ready) { send_nmea_wifi(str_nmea); nmea_ready = false; }
- //    }
+     }
     }
    }
   }
