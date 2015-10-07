@@ -414,7 +414,8 @@ void setup() {
      wifi.joinAP(SSID, PASSWORD);     
      lcd.clear(BLACK);
      get_ip();
-     if (strcmp(aip,"0.0.0.0")!=0) wifi_status = true;      
+     if (strcmp(aip,"0.0.0.0")!=0) wifi_status = true;    
+     delay(300);  
     }
     
     if (!wifi_status) {
@@ -426,6 +427,7 @@ void setup() {
       lcd.clear(BLACK);
       get_ip();
       if (strcmp(aip,"0.0.0.0") != 0) wifi_status = true;
+      delay(300);
     }
     
     if (!wifi_status) {
@@ -437,9 +439,11 @@ void setup() {
       lcd.clear(BLACK);
       get_ip();
       if (strcmp(aip,"0.0.0.0") != 0) wifi_status = true;
+      delay(300);
     }
   
      delay(1000);
+     lcd.clear(BLACK);
      
      wifi.enableMUX();
      wifi.startTCPServer(80);
