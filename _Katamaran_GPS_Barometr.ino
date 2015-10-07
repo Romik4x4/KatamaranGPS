@@ -18,8 +18,8 @@
 //  AT+CWSAP_CUR="GPS","",6,0
 
 //  AT+CWMODE=3  Soft_AP + Client
-// AT+CIPMUX=1 Много соединений
-// AT+CIPSERVER=1,80  Сервер на 80 порту
+//  AT+CIPMUX=1 Много соединений
+//  AT+CIPSERVER=1,80  Сервер на 80 порту
 
 // https://github.com/itead/ITEADLIB_Arduino_WeeESP8266
 // 
@@ -406,21 +406,39 @@ void setup() {
     strcpy(aip,"0.0.0.0");
   
     lcd.clear(BLACK);
-    lcd.setStr("Looking Wi-Fi",0,2,WHITE, BLACK);  
+    
+    lcd.setStr("Try RomikTP",0,15,WHITE, BLACK);        
+    
+    if (wifi.joinAP(SSID, PASSWORD))  {
+      lcd.clear(BLACK);
+      get_ip();
+      if (!strcmp(aip,"0.0.0.0")!=0) wifi_status = true;
+    }
+    
+    if (!wifi_status) {
+      lcd.clear(BLACK);
+      lcd.setStr("Try OS",0,15,WHITE, BLACK);        
+      wifi.joinAP(SSID1, PASSWORD1);
+      lcd.clear(BLACK);
+      get_ip();
+      if (strcmp(aip,"0.0.0.0") != 0) wifi_status = true;
+    }
+    
+    if (!wifi_status) {
+      lcd.clear(BLACK);
+      lcd.setStr("Try OS",0,15,WHITE, BLACK);        
+      wifi.joinAP(SSID2, PASSWORD2);
+      lcd.clear(BLACK);
+      get_ip();
+      if (strcmp(aip,"0.0.0.0") != 0) wifi_status = true;
+    }
   
-    if (wifi.joinAP(SSID, PASSWORD)) wifi_status = true;
-    if (!wifi_status) wifi_status = wifi.joinAP(SSID1, PASSWORD1);
-    if (!wifi_status) wifi_status = wifi.joinAP(SSID2, PASSWORD2);
-  
-    wifi.enableMUX();
-    wifi.startTCPServer(80);
-    wifi.setTCPServerTimeout(10);
-      
-     lcd.clear(BLACK);;
-     get_ip();
-     delay(700);
-     lcd.clear(BLACK);
+     delay(800);
      
+     wifi.enableMUX();
+     wifi.startTCPServer(80);
+     wifi.setTCPServerTimeout(10);
+         
   } // End Of Wi-Fi Setup.
    
 }
@@ -1869,7 +1887,6 @@ void erase_gps_track( void ) {
 
 void get_ip( void ) {
   
-  
     char s[128];
     char *token;
     const char delimiters[] = "\":";
@@ -1902,13 +1919,13 @@ void get_ip( void ) {
       token = strtok (NULL, delimiters);   
     }    
     
-        lcd.setStr(pip,15,2,WHITE, BLACK);  
-        lcd.setStr(aip,30,2,WHITE, BLACK);  
+        lcd.setStr(pip,15,10,WHITE, BLACK);  
+        lcd.setStr(aip,30,10,WHITE, BLACK);  
         
         if (wifi_status) {
-          lcd.setStr("Wi-Fi Connected",45,2,WHITE, BLACK);          
+          lcd.setStr("Wi-Fi Connected",45,10,WHITE, BLACK);          
         } else {
-          lcd.setStr("Wi-Fi Error    ",45,2,WHITE, BLACK);  
+          lcd.setStr("Wi-Fi Error    ",45,10,WHITE, BLACK);  
         }
   }
 
