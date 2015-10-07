@@ -406,18 +406,22 @@ void setup() {
     strcpy(aip,"0.0.0.0");
   
     lcd.clear(BLACK);
-    
-    lcd.setStr("Try RomikTP",0,15,WHITE, BLACK);        
-    
-    if (wifi.joinAP(SSID, PASSWORD))  {
-      lcd.clear(BLACK);
-      get_ip();
-      if (!strcmp(aip,"0.0.0.0")!=0) wifi_status = true;
+
+    if (!wifi_status) {    
+     lcd.setStr("Try RomikTP",0,15,WHITE, BLACK);           
+     wifi.joinAP(SSID, PASSWORD);
+     delay(200);
+     wifi.joinAP(SSID, PASSWORD);     
+     lcd.clear(BLACK);
+     get_ip();
+     if (strcmp(aip,"0.0.0.0")!=0) wifi_status = true;      
     }
     
     if (!wifi_status) {
       lcd.clear(BLACK);
       lcd.setStr("Try OS",0,15,WHITE, BLACK);        
+      wifi.joinAP(SSID1, PASSWORD1);
+      delay(200);
       wifi.joinAP(SSID1, PASSWORD1);
       lcd.clear(BLACK);
       get_ip();
@@ -426,14 +430,16 @@ void setup() {
     
     if (!wifi_status) {
       lcd.clear(BLACK);
-      lcd.setStr("Try OS",0,15,WHITE, BLACK);        
+      lcd.setStr("Try Romik",0,15,WHITE, BLACK);        
+      wifi.joinAP(SSID2, PASSWORD2);
+      delay(200);
       wifi.joinAP(SSID2, PASSWORD2);
       lcd.clear(BLACK);
       get_ip();
       if (strcmp(aip,"0.0.0.0") != 0) wifi_status = true;
     }
   
-     delay(800);
+     delay(1000);
      
      wifi.enableMUX();
      wifi.startTCPServer(80);
@@ -1894,8 +1900,7 @@ void get_ip( void ) {
     int  i = 0;
     
     lcd.clear(BLACK);
-    strcpy(s,"IP Addresses");
-    lcd.setStr(s,0,2,WHITE, BLACK);  
+    lcd.setStr("IP Addresses",0,10,WHITE, BLACK);  
 
         start = millis();
         Serial.print("AT+CIFSR\r\n");
@@ -1918,12 +1923,11 @@ void get_ip( void ) {
       if  (strstr(token,"AIP")) strcpy(aip,strtok (NULL, delimiters)); 
       token = strtok (NULL, delimiters);   
     }    
-    
         lcd.setStr(pip,15,10,WHITE, BLACK);  
         lcd.setStr(aip,30,10,WHITE, BLACK);  
-        
-        if (wifi_status) {
-          lcd.setStr("Wi-Fi Connected",45,10,WHITE, BLACK);          
+                
+        if (strcmp(aip,"0.0.0.0") != 0) {
+          lcd.setStr("Wi-Fi Connect  ",45,10,WHITE, BLACK);          
         } else {
           lcd.setStr("Wi-Fi Error    ",45,10,WHITE, BLACK);  
         }
