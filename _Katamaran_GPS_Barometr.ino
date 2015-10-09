@@ -294,13 +294,13 @@ ESP8266 wifi(Serial);
 char pip[16],aip[16];  // IP Addresess
 
 #define SSID1                "OS"
-#define PASSWORD1    "4957392716"
+#define PASSWORD1    "pass"
 
 #define SSID2                "Romik"
-#define PASSWORD2    "12915007961379"
+#define PASSWORD2    "pass"
 
 #define SSID                "RomikTP"
-#define PASSWORD    "12915007961379"
+#define PASSWORD    "pass"
 
 boolean wifi_status = false;
 
