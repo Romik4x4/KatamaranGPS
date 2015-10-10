@@ -293,14 +293,14 @@ ESP8266 wifi(Serial);
 
 char pip[16],aip[16];  // IP Addresess
 
-#define SSID1                "OS"
-#define PASSWORD1    "pass"
+// #define SSID1                "OS"
+// #define PASSWORD1            "pass"
 
 #define SSID2                "Romik"
-#define PASSWORD2    "pass"
+#define PASSWORD2            "pass"
 
-#define SSID                "RomikTP"
-#define PASSWORD    "pass"
+#define SSID                 "RomikTP"
+#define PASSWORD             "pass"
 
 boolean wifi_status = false;
 
@@ -418,7 +418,7 @@ void setup() {
      delay(300);  
     }
     
-    if (!wifi_status) {
+/*    if (!wifi_status) {
       lcd.clear(BLACK);
       lcd.setStr("Try OS",0,15,WHITE, BLACK);        
       wifi.joinAP(SSID1, PASSWORD1);
@@ -429,7 +429,8 @@ void setup() {
       if (strcmp(aip,"0.0.0.0") != 0) wifi_status = true;
       delay(300);
     }
-    
+*/
+
     if (!wifi_status) {
       lcd.clear(BLACK);
       lcd.setStr("Try Romik",0,15,WHITE, BLACK);        
@@ -478,9 +479,15 @@ void loop() {
      str_nmea[nmea_pos] = nmea; 
      nmea_pos++; 
      if (nmea == '\n') { // End of NMEA string
-       nmea_start = false;
        if (nmea_pos < 99) str_nmea[nmea_pos] = '\0'; else str_nmea[99] = '\0';
-       nmea_ready = true;     
+        nmea_start = false;
+        if (strstr(str_nmea,"RMC")) {
+          nmea_ready = true; 
+        } else {
+          str_nmea[nmea_pos] = '\0';
+          nmea_pos = 0;
+          nmea_start = false;
+        }
      }
     }
     
