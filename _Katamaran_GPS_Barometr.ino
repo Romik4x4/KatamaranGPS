@@ -1956,7 +1956,7 @@ void send_nmea_wifi(char *out_nmea ) {
     if (out_nmea[i] == '\r') out_nmea[i] = '\0';
   }
   
-  String host = "62.113.122.5";
+  String host = "62.113.122.4";
   
   uint32_t port = 80;
   
